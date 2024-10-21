@@ -1,21 +1,30 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
-	"os"
-	"path/filepath"
-	"strconv"
+
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
+	"golang.org/x/crypto/bcrypt"
+
+	_ "github.com/go-playground/validator/v10"
+)
+
+type contextKey string
+
+const (
+	contextKeyHealthCareID = contextKey("healthcareID")
 )
 
 type Storage interface {
-	SignUp(*User) error
-	LoginUser(*Login) (*User, error)
+	SignUpAccount(*HIPInfo) (int64, error)
+	LoginUser(*Login) (*HIPInfo, error)
+	ChangePreferance(int, *ChangePreferance) error
+	GetPreferance(int) (*ChangePreferance, error)
 }
 
 type APIServer struct {
@@ -32,28 +41,39 @@ func NewAPIServer(listen string, store Storage) *APIServer {
 
 func (s *APIServer) Run() {
 	router := mux.NewRouter()
+	router.HandleFunc("/api/v1/healthcareauth/register", (makeHTTPHandlerFunc(s.SignUp)))
+	router.HandleFunc("/api/v1/healthcareauth/login", (makeHTTPHandlerFunc(s.LoginUser)))
+	router.HandleFunc("/api/v1/healthcare/changepreferance", withJWTAuth(makeHTTPHandlerFunc(s.ChangePreferance), s.store))
+	router.HandleFunc("/api/v1/healthcare/getpreferance", withJWTAuth(makeHTTPHandlerFunc(s.GetPreferance), s.store))
 
-	router.HandleFunc("/signup", (makeHTTPHandlerFunc(s.SignUp)))
-	router.HandleFunc("/login", (makeHTTPHandlerFunc(s.LoginUser)))
-	router.HandleFunc("/uploadresume", withJWTAuth(makeHTTPHandlerFunc(s.UploadResume), s.store))
-
-	log.Println("HealthCare_Server running on port: ", s.listenAddr)
+	log.Println("HealthCare Server running on Port: ", s.listenAddr)
 	http.ListenAndServe(s.listenAddr, router)
 }
 
 func (s *APIServer) SignUp(w http.ResponseWriter, r *http.Request) error {
-	req := User{}
+	if r.Method != "POST" {
+		return fmt.Errorf("method is not allowed %s", r.Method)
+	}
+	req := HIPInfo{}
+	// validate := validator.New()
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return err
 	}
+	// err := validate.Struct(req)
+	// if err != nil {
+	// 	return fmt.Errorf("validation failed")
+	// }
 
-	user, err := SignUpAccount(req.Name, req.Email, req.Address, req.UserType, req.ProfileHeadline, req.PasswordHash)
+	fmt.Println(req)
+	user, err := SignUpAccount(&req)
 	if err != nil {
 		return err
 	}
-	if err := s.store.SignUp(user); err != nil {
+	id, err := s.store.SignUpAccount(user)
+	if err != nil {
 		return err
 	}
+	user.HealthcareID = int(id)
 	return writeJSON(w, http.StatusOK, user)
 }
 
@@ -67,71 +87,71 @@ func (s *APIServer) LoginUser(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if _, err := s.store.LoginUser(login); err != nil {
+	hip, err := s.store.LoginUser(login)
+	if err != nil {
 		return err
 	}
 
-	// Create New Token everytime user login
+	// Verify the password
+	if err := bcrypt.CompareHashAndPassword([]byte(hip.Password), []byte(login.Password)); err != nil {
+		return fmt.Errorf("password mismatched your id %s", hip.HealthcareLicense)
+	}
+
+	// create token everytime user login !!
 	tokenString, err := createJWT(login)
 	if err != nil {
 		return err
 	}
-
 	return writeJSON(w, http.StatusOK, map[string]string{"token": tokenString})
 }
 
-func (s *APIServer) UploadResume(w http.ResponseWriter, r *http.Request) error {
+func (s *APIServer) ChangePreferance(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "POST" {
-		return fmt.Errorf("method not allowed")
+		return fmt.Errorf("method is not allowed %s", r.Method)
 	}
-	// Parse the multipart form
-	err := r.ParseMultipartForm(10 << 20) // 10 MB
+	req := &ChangePreferance{}
+	req.Email = ""
+	req.IsAvailable = true
+	req.Scheduled_deletion = false
+	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(float64)
+	if !ok {
+		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
+	}
+	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		http.Error(w, "Unable to parse form", http.StatusBadRequest)
 		return err
 	}
 
-	// Retrieve the file from the form
-	file, handler, err := r.FormFile("resume")
+	err = s.store.ChangePreferance(int(healthcareID), req)
 	if err != nil {
-		http.Error(w, "Error retrieving the file", http.StatusBadRequest)
-		return err
-	}
-	defer file.Close()
-
-	// Define the path where the file will be saved
-	uploadPath := "./uploads"
-	if err := os.MkdirAll(uploadPath, os.ModePerm); err != nil {
-		http.Error(w, "Unable to create upload directory", http.StatusInternalServerError)
 		return err
 	}
 
-	// Create the file on the server
-	dst, err := os.Create(filepath.Join(uploadPath, handler.Filename))
-	if err != nil {
-		http.Error(w, "Unable to create the file", http.StatusInternalServerError)
-		return err
-	}
-	defer dst.Close()
-
-	// Copy the uploaded file data to the destination file
-	if _, err := io.Copy(dst, file); err != nil {
-		http.Error(w, "Unable to save the file", http.StatusInternalServerError)
-		return err
-	}
-
-	// Respond to the client
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "File uploaded successfully: %s", handler.Filename)
-	return nil
+	return writeJSON(w, http.StatusOK, req)
 }
-///////////////////////////////////////////
-////////  	JSON Token 	/////////////////////////
+
+func (s *APIServer) GetPreferance(w http.ResponseWriter, r *http.Request) error {
+	if r.Method != "GET" {
+		return fmt.Errorf("method is not allowed %s", r.Method)
+	}
+	req := &ChangePreferance{}
+	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(float64)
+	if !ok {
+		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
+	}
+	req, err := s.store.GetPreferance(int(healthcareID)); if err != nil {
+		return err
+	}
+	return writeJSON(w, http.StatusOK, req);
+}
+
+// ///////////////////////////// ///////////////////// ///////////////// //////////// /////////////// ////////////// /
+/////////////////////////// ///  	 Utility   	///////////////////////// ////////////////// ///////////// ///////
 
 func createJWT(account *Login) (string, error) {
 	claims := &jwt.MapClaims{
 		"expiresAt":    1500,
-		"accountEmail": account.Email,
+		"healthcareID": account.HealthcareID,
 	}
 	signKey := "PASSWORD"
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -140,39 +160,34 @@ func createJWT(account *Login) (string, error) {
 
 func withJWTAuth(handlerFunc http.HandlerFunc, s Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("Calling JWT handler")
-
-		tokenString := r.Header.Get("auth")
+		tokenString := r.Header.Get("Authorization")
+		// this will extract token from Bearer keyword
+		if tokenString == "" || len(tokenString) < 7 || tokenString[:7] != "Bearer " {
+			writeJSON(w, http.StatusNotAcceptable, apiError{Error: "Authorization header format must be Bearer <token>"})
+			return
+		}
+		tokenString = tokenString[7:]
 		token, err := validateJWT(tokenString)
 		if err != nil {
-			writeJSON(w, http.StatusNotAcceptable, apiError{Error: "invalid token"})
+			writeJSON(w, http.StatusNotAcceptable, apiError{Error: fmt.Sprintf("Token Not Valid: %v", err)})
 			return
 		}
 
 		if !token.Valid {
-			writeJSON(w, http.StatusForbidden, apiError{Error: "invalid token"})
+			writeJSON(w, http.StatusForbidden, apiError{Error: "Invalid token"})
 			return
 		}
-
-		// userId, err := getId(r)
-		// if err != nil {
-		// 	writeJSON(w, http.StatusForbidden, apiError{Error: "invalid token"})
-		// 	return
-		// }
-
-		// account, err := s.GetAccountByID(userId)
-		// if err != nil {
-		// 	writeJSON(w, http.StatusForbidden, apiError{Error: "invalid token"})
-		// 	return
-		// }
-
-		// claims := token.Claims.(jwt.MapClaims)
-		// fmt.Println(claims, account.Number)
-		// if account.Number != claims["accountEmail"] {
-		// 	writeJSON(w, http.StatusForbidden, apiError{Error: "invalid token"})
-		// 	return
-		// }
-		handlerFunc(w, r)
+		// Extract claims and add to request context
+		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+			healthID, _ := claims["healthcareID"].(float64)
+			// Add claims to request context
+			ctx := context.WithValue(r.Context(), contextKeyHealthCareID, healthID)
+			// Pass the new context with claims to the handler
+			handlerFunc(w, r.WithContext(ctx))
+		} else {
+			writeJSON(w, http.StatusForbidden, apiError{Error: "Invalid token claims"})
+			return
+		}
 	}
 }
 
@@ -187,7 +202,6 @@ func validateJWT(tokenString string) (*jwt.Token, error) {
 }
 
 // Helper One
-// //////////////////////////////////////////
 func writeJSON(w http.ResponseWriter, status int, v any) error {
 	w.Header().Set("content-type", "application/json")
 	w.WriteHeader(status)
@@ -205,13 +219,4 @@ func makeHTTPHandlerFunc(f apiFunc) http.HandlerFunc {
 			writeJSON(w, http.StatusBadRequest, apiError{Error: err.Error()})
 		}
 	}
-}
-
-func getId(r *http.Request) (int, error) {
-	idStr := mux.Vars(r)["id"]
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		return id, fmt.Errorf("invalid id given %s", idStr)
-	}
-	return id, nil
 }

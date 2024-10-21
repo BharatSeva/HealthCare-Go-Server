@@ -1,12 +1,21 @@
 package main
+import (
+	"fmt"
+	"log"
+)
 
-import "log"
+const (
+	host     = "localhost"
+	port     = 5432
+	user     = "postgres"
+	password = "postgres"
+	dbname   = "postgres"
+)
 
 // THIS IS TESTING SERVER IMPLEMENTATION WILL TAKE TIME
-
 func main() {
-
-	postgres, err := NewPostgresStore("user=postgres dbname=postgres password=user sslmode=disable ")
+	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+"password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
+	postgres, err := NewPostgresStore(psqlInfo)
 	if err != nil {
 		log.Fatal(err)
 	}
