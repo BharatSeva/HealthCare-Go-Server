@@ -90,7 +90,7 @@ func NewCombinedStore(postgresConn string, mongoURI string, dbName string, colle
 func main() {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
 		host, port, user, password, dbname)
-	mongoURI := "mongodb+srv://vaibhavwateam:OpgbfoVf55RObbJN@bharatsevacluster.sbo5r.mongodb.net/?retryWrites=true&w=majority&appName=BharatSevaCluster"
+	mongoURI := "#####"
 
 	store, err := NewCombinedStore(psqlInfo, mongoURI, "db", []string{"golang1", "golang2", "golang3", "golang4"})
 	if err != nil {
