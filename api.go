@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 
+	_ "github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
-
-	_ "github.com/go-playground/validator/v10"
 	mod "vaibhavyadav-dev/healthcareServer/databases"
 )
 
@@ -21,51 +21,78 @@ const (
 	contextKeyHealthCareID = contextKey("healthcareID")
 )
 
-type Storage interface {
-	SignUpAccount(*mod.HIPInfo) (int64, error)
-	LoginUser(*mod.Login) (*mod.HIPInfo, error)
-	ChangePreferance(int, *mod.ChangePreferance) error
-	GetPreferance(int) (*mod.ChangePreferance, error)
-}
+// type postgres interface {
+// 	SignUpAccount(*mod.HIPInfo) (int64, error)
+// 	LoginUser(*mod.Login) (*mod.HIPInfo, error)
+// 	ChangePreferance(int, *mod.ChangePreferance) error
+// 	GetPreferance(int) (*mod.ChangePreferance, error)
+// }
 
 /////////////////////////////////////////
-///// MongoDB Server ///////
+///// APIServer Server ///////
 
-type mongodb interface {
-	GetAppointments(int) ([]*mod.Appointments, error)
+// type mongodb interface {
+// 	GetAppointments(int) ([]*mod.Appointments, error)
+// 	CreatePatient_bioData(int, *mod.PatientDetails) (*mod.PatientDetails, error)
+// 	GetPatient_bioData(string) (*mod.PatientDetails, error)
+// 	GetHealthcare_details(int) (*mod.HIPInfo, error)
+// 	CreatepatientRecords(string, *mod.PatientRecords) (*mod.PatientRecords, error)
+// 	GetPatientRecords(string, int) (*[]mod.PatientRecords, error)
+// 	UpdatePatientBioData(string, map[string]interface{}) (*mod.PatientDetails, error)
+// }
+// type MONGODB struct {
+// 	listenAddr string
+// 	store      mongodb
+// }
+
+// func NewMONOGODB_SERVER(listen string, store mongodb) *MONGODB {
+// 	return &MONGODB{
+// 		listenAddr: listen,
+// 		store:      store,
+// 	}
+// }
+
+// func (m *MONGODB) Run() {
+// 	router := mux.NewRouter()
+// 	router.HandleFunc("/api/v1/healthcare/getappointments", withJWTAuth(makeHTTPHandlerFunc(m.GetAppointments)))
+// 	router.HandleFunc("/api/v1/healthcare/createpatientbiodata", withJWTAuth(makeHTTPHandlerFunc(m.CreatePatient_bioData)))
+// 	router.HandleFunc("/api/v1/healthcare/getpatientbiodata", withJWTAuth(makeHTTPHandlerFunc(m.GetpatientBioData)))
+// 	router.HandleFunc("/api/v1/healthcare/getdetails", withJWTAuth(makeHTTPHandlerFunc(m.GetDetails)))
+// 	router.HandleFunc("/api/v1/healthcare/createrecords", withJWTAuth(makeHTTPHandlerFunc(m.CreatepatientRecords)))
+// 	router.HandleFunc("/api/v1/healthcare/getpatientrecords", withJWTAuth(makeHTTPHandlerFunc(m.GetPatientRecords)))
+// 	router.HandleFunc("/api/v1/healthcare/updatepatientbiodata", withJWTAuth(makeHTTPHandlerFunc(m.UpdatePatientBioData)))
+
+// 	log.Println("MONGODB_HealthCare Server running on Port: ", m.listenAddr)
+// 	http.ListenAndServe(m.listenAddr, router)
+// }
+
+// ///////////////////////////////////////5
+// MongoDB Server ///////
+
+type Store interface {
+	// PostgreSQL Methods goes here...
+	SignUpAccount(*mod.HIPInfo) (int64, error)
+	LoginUser(*mod.Login) (*mod.HIPInfo, error)
+	ChangePreferance(string, map[string]interface{}) error
+	GetPreferance(int) (*mod.ChangePreferance, error)
+
+	// MongoDB methods goes here...
+	GetAppointments(string, int) ([]*mod.Appointments, error)
 	CreatePatient_bioData(int, *mod.PatientDetails) (*mod.PatientDetails, error)
 	GetPatient_bioData(string) (*mod.PatientDetails, error)
+	CreateHealthcare_details(*mod.HIPInfo) (*mod.HIPInfo, error)
+	GetHealthcare_details(string) (*mod.HIPInfo, error)
+	CreatepatientRecords(string, *mod.PatientRecords) (*mod.PatientRecords, error)
+	GetPatientRecords(string, int) (*[]mod.PatientRecords, error)
+	UpdatePatientBioData(string, map[string]interface{}) (*mod.PatientDetails, error)
 }
-type MONGODB struct {
-	listenAddr string
-	store      mongodb
-}
-
-func NewMONOGODB_SERVER(listen string, store mongodb) *MONGODB {
-	return &MONGODB{
-		listenAddr: listen,
-		store:      store,
-	}
-}
-
-func (m *MONGODB) Run() {
-	router := mux.NewRouter()
-	router.HandleFunc("/api/v1/healthcare/getappointments", withJWTAuth(makeHTTPHandlerFunc(m.GetAppointments)))
-	router.HandleFunc("/api/v1/healthcare/createpatientbiodata", withJWTAuth(makeHTTPHandlerFunc(m.CreatePatient_bioData)))
-	router.HandleFunc("/api/v1/healthcare/getpatientbiodata", withJWTAuth(makeHTTPHandlerFunc(m.GetpatientBioData)))
-	log.Println("MONGODB_HealthCare Server running on Port: ", m.listenAddr)
-	http.ListenAndServe(m.listenAddr, router)
-}
-
-/////////////////////////////////////////5
-// MongoDB Server ///////
 
 type APIServer struct {
 	listenAddr string
-	store      Storage
+	store      Store
 }
 
-func NewAPIServer(listen string, store Storage) *APIServer {
+func NewAPIServer(listen string, store Store) *APIServer {
 	return &APIServer{
 		listenAddr: listen,
 		store:      store,
@@ -80,6 +107,14 @@ func (s *APIServer) Run() {
 	router.HandleFunc("/api/v1/healthcare/getpreferance", withJWTAuth(makeHTTPHandlerFunc(s.GetPreferance)))
 	router.HandleFunc("/api/v1/healthcare/deleteaccount", withJWTAuth(makeHTTPHandlerFunc(s.DeleteAccount)))
 
+	router.HandleFunc("/api/v1/healthcare/getappointments", withJWTAuth(makeHTTPHandlerFunc(s.GetAppointments)))
+	router.HandleFunc("/api/v1/healthcare/createpatientbiodata", withJWTAuth(makeHTTPHandlerFunc(s.CreatePatient_bioData)))
+	router.HandleFunc("/api/v1/healthcare/getpatientbiodata", withJWTAuth(makeHTTPHandlerFunc(s.GetpatientBioData)))
+	router.HandleFunc("/api/v1/healthcare/details", withJWTAuth(makeHTTPHandlerFunc(s.GetHealthcare_details)))
+	router.HandleFunc("/api/v1/healthcare/createrecords", withJWTAuth(makeHTTPHandlerFunc(s.CreatepatientRecords)))
+	router.HandleFunc("/api/v1/healthcare/getpatientrecords", withJWTAuth(makeHTTPHandlerFunc(s.GetPatientRecords)))
+	router.HandleFunc("/api/v1/healthcare/updatepatientbiodata", withJWTAuth(makeHTTPHandlerFunc(s.UpdatePatientBioData)))
+
 	log.Println("HealthCare Server running on Port: ", s.listenAddr)
 	http.ListenAndServe(s.listenAddr, router)
 }
@@ -89,24 +124,22 @@ func (s *APIServer) SignUp(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("method is not allowed %s", r.Method)
 	}
 	req := mod.HIPInfo{}
-	// validate := validator.New()
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return err
 	}
-	// err := validate.Struct(req)
-	// if err != nil {
-	// 	return fmt.Errorf("validation failed")
-	// }
-
 	user, err := mod.SignUpAccount(&req)
 	if err != nil {
 		return err
 	}
-	id, err := s.store.SignUpAccount(user)
+	_, err = s.store.SignUpAccount(user)
 	if err != nil {
 		return err
 	}
-	user.HealthcareID = int(id)
+
+	_, err = s.store.CreateHealthcare_details(user)
+	if err != nil {
+		return err
+	}
 	return writeJSON(w, http.StatusOK, user)
 }
 
@@ -139,13 +172,10 @@ func (s *APIServer) LoginUser(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *APIServer) ChangePreferance(w http.ResponseWriter, r *http.Request) error {
-	if r.Method != "POST" {
-		return fmt.Errorf("method is not allowed %s", r.Method)
+	if r.Method != "PATCH" {
+		return fmt.Errorf("%s method is not allowed", r.Method)
 	}
-	req := &mod.ChangePreferance{}
-	req.Email = ""
-	req.IsAvailable = true
-	req.Scheduled_deletion = false
+	req := make(map[string]interface{})
 	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(float64)
 	if !ok {
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
@@ -154,12 +184,12 @@ func (s *APIServer) ChangePreferance(w http.ResponseWriter, r *http.Request) err
 	if err != nil {
 		return err
 	}
-
-	err = s.store.ChangePreferance(int(healthcareID), req)
+	healthcareID_int := int(healthcareID)
+	healthcareID_str := string(healthcareID_int)
+	err = s.store.ChangePreferance(healthcareID_str, req)
 	if err != nil {
 		return err
 	}
-
 	return writeJSON(w, http.StatusOK, req)
 }
 
@@ -181,18 +211,16 @@ func (s *APIServer) GetPreferance(w http.ResponseWriter, r *http.Request) error 
 
 func (s *APIServer) DeleteAccount(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "DELETE" {
-		return fmt.Errorf("method is not allowed %s", r.Method)
+		return fmt.Errorf("%s method is not allowed", r.Method)
 	}
-	req := &mod.ChangePreferance{}
-	req.Email = ""
-	req.IsAvailable = false
-	req.Scheduled_deletion = true
+	req := make(map[string]interface{})
 	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(float64)
 	if !ok {
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
 	}
-
-	err := s.store.ChangePreferance(int(healthcareID), req)
+	healthcareID_int := int(healthcareID)
+	healthcareID_str := string(healthcareID_int)
+	err := s.store.ChangePreferance(healthcareID_str, req)
 	if err != nil {
 		return err
 	}
@@ -202,23 +230,39 @@ func (s *APIServer) DeleteAccount(w http.ResponseWriter, r *http.Request) error 
 
 /////////////////////////////// MONGODB METHODS GOES HERE //////////////////////////////////
 
-func (m *MONGODB) GetAppointments(w http.ResponseWriter, r *http.Request) error {
+func (s *APIServer) GetAppointments(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "GET" {
-		return fmt.Errorf("method is not allowed %s", r.Method)
+		return fmt.Errorf("%s method is not allowed", r.Method)
 	}
 	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(float64)
 	if !ok {
-		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "1HealthID not found in token"})
+		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
 	}
-	appointments, err := m.store.GetAppointments(int(healthcareID))
+	query := r.URL.Query()
+	listStr := query.Get("list")
+	list := 5
+	if listStr != "" {
+		var err error
+		list, err = strconv.Atoi(listStr)
+		if err != nil {
+			log.Fatalf("Failed to convert list to int: %v pagination %d", err, list)
+		}
+		fmt.Println(list)
+	}
+	healthcareID_int := int(healthcareID)
+	healthcareID_str := string(healthcareID_int)
+	appointments, err := s.store.GetAppointments(healthcareID_str, list)
 	if err != nil {
 		log.Fatal("Error retrieving appointments:", err)
 	}
-	// Print retrieved appointments
-	return writeJSON(w, http.StatusOK, appointments)
+	return writeJSON(w, http.StatusOK, map[string]interface{}{
+		"message":      "fetch successful",
+		"appointments": appointments,
+		"pagination":   list,
+	})
 }
 
-func (m *MONGODB) CreatePatient_bioData(w http.ResponseWriter, r *http.Request) error {
+func (s *APIServer) CreatePatient_bioData(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "POST" {
 		return fmt.Errorf("method is not allowed %s", r.Method)
 	}
@@ -232,34 +276,140 @@ func (m *MONGODB) CreatePatient_bioData(w http.ResponseWriter, r *http.Request) 
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "1HealthID not found in token"})
 	}
 
-	patientDetails, err := m.store.CreatePatient_bioData(int(healthcareID), patient)
+	patientDetails, err := s.store.CreatePatient_bioData(int(healthcareID), patient)
 	if err != nil {
 		return err
 	}
 	return writeJSON(w, http.StatusCreated, patientDetails)
 }
 
-func (m *MONGODB) GetpatientBioData(w http.ResponseWriter, r *http.Request) error {
+func (s *APIServer) GetpatientBioData(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "GET" {
 		return fmt.Errorf("method is not allowed %s", r.Method)
 	}
 	query := r.URL.Query()
 
-    // Get the healthID from the query parameters
-    healthID := query.Get("healthID")
+	// Get the healthID from the query parameters
+	healthID := query.Get("healthID")
 	if healthID == "" {
 		http.Error(w, "Missing healthID in URL", http.StatusBadRequest)
 		return fmt.Errorf("missing healthID in URL")
 	}
-	patientDetails, err := m.store.GetPatient_bioData(healthID)
+	patientDetails, err := s.store.GetPatient_bioData(healthID)
 	if err != nil {
 		return err
 	}
 	return writeJSON(w, http.StatusOK, patientDetails)
 }
 
+func (s *APIServer) GetHealthcare_details(w http.ResponseWriter, r *http.Request) error {
+	if r.Method != "GET" {
+		return fmt.Errorf("%s method is not allowed", r.Method)
+	}
+	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(string)
+	fmt.Println(healthcareID)
+	if !ok {
+		return writeJSON(w, http.StatusBadRequest, map[string]string{"HealthCareID": "HealthCareID not found in token"})
+	}
+	hipdetails, err := s.store.GetHealthcare_details(healthcareID)
+	if err != nil {
+		return writeJSON(w, http.StatusNotFound, map[string]interface{}{
+			"message":    "Not Found!",
+			"healthcare": hipdetails,
+		})
+	}
+	return writeJSON(w, http.StatusOK, hipdetails)
+}
+
+func (s *APIServer) CreatepatientRecords(w http.ResponseWriter, r *http.Request) error {
+	if r.Method != "POST" {
+		return fmt.Errorf("method is not allowed %s", r.Method)
+	}
+	patientrecords := &mod.PatientRecords{}
+	err := json.NewDecoder(r.Body).Decode(&patientrecords)
+	if err != nil {
+		return writeJSON(w, http.StatusNoContent, map[string]interface{}{
+			"message": err,
+		})
+	}
+	healthcareId, ok := r.Context().Value(contextKeyHealthCareID).(string)
+	if !ok {
+		return writeJSON(w, http.StatusUnauthorized, map[string]string{"message": "StatusUnauthorized"})
+	}
+	patientrecords_created, err := s.store.CreatepatientRecords(healthcareId, patientrecords)
+	if err != nil {
+		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"message": err,
+		})
+	}
+	return writeJSON(w, http.StatusCreated, patientrecords_created)
+}
+
+func (s *APIServer) GetPatientRecords(w http.ResponseWriter, r *http.Request) error {
+	if r.Method != "GET" {
+		return fmt.Errorf("%s method not allowed", r.Method)
+	}
+	query := r.URL.Query()
+	health_id := query.Get("healthID")
+	if health_id == "" {
+		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"message": "Health Id not Provided",
+		})
+	}
+	listStr := query.Get("list")
+	list := 5
+	if listStr != "" {
+		var err error
+		list, err = strconv.Atoi(listStr)
+		if err != nil {
+			return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+				"message": "Could not fetch Records",
+			})
+		}
+	}
+	patientRecords, err := s.store.GetPatientRecords(health_id, list)
+	if err != nil {
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"message": "Could not fetch Records",
+		})
+	}
+	return writeJSON(w, http.StatusOK, map[string]interface{}{
+		"message":         "successfull",
+		"pagination":      list,
+		"patient_records": patientRecords,
+	})
+}
+
+func (s *APIServer) UpdatePatientBioData(w http.ResponseWriter, r *http.Request) error {
+	if r.Method != "PATCH" {
+		return fmt.Errorf("method not allowed %s", r.Method)
+	}
+	healthID := r.URL.Query().Get("healthID")
+	if healthID == "" {
+		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"message": "Provide health Id",
+		})
+	}
+
+	updates := make(map[string]interface{})
+	err := json.NewDecoder(r.Body).Decode(&updates)
+	if err != nil {
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"message": "Internal Server Error: could not get data",
+		})
+	}
+
+	updatedPatient, err := s.store.UpdatePatientBioData(healthID, updates)
+	if err != nil {
+		return writeJSON(w, http.StatusConflict, map[string]interface{}{
+			"message": "No Chage Detected or No Patient Found",
+		})
+	}
+	return writeJSON(w, http.StatusAccepted, updatedPatient)
+}
+
 // ///////////////////////////// ///////////////////// ///////////////// //////////// /////////////// ////////////// /
-/////////////////////////// ///  	 Utility   	///////////////////////// ////////////////// ///////////// ///////
+/////////////////////////// ///  	 Utility Functions  	///////////////////////// ////////////////// ///////////// ///////
 
 func createJWT(account *mod.Login) (string, error) {
 	claims := &jwt.MapClaims{
@@ -290,12 +440,9 @@ func withJWTAuth(handlerFunc http.HandlerFunc) http.HandlerFunc {
 			writeJSON(w, http.StatusForbidden, apiError{Error: "Invalid token"})
 			return
 		}
-		// Extract claims and add to request context
 		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-			healthID, _ := claims["healthcareID"].(float64)
-			// Add claims to request context
+			healthID, _ := claims["healthcareID"].(string)
 			ctx := context.WithValue(r.Context(), contextKeyHealthCareID, healthID)
-			// Pass the new context with claims to the handler
 			handlerFunc(w, r.WithContext(ctx))
 		} else {
 			writeJSON(w, http.StatusForbidden, apiError{Error: "Invalid token claims"})

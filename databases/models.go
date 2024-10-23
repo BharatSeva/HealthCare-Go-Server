@@ -2,9 +2,12 @@ package databases
 
 import (
 	// "github.com/go-playground/validator/v10"
+	"fmt"
+	"time"
+
+	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/crypto/bcrypt"
-	"time"
 )
 
 type Address struct {
@@ -15,18 +18,20 @@ type Address struct {
 }
 
 type HIPInfo struct {
-	HealthcareID       int       `json:"healthcare_id" validate:"required"`                   // Required, unique
-	HealthcareLicense  string    `json:"healthcare_license" validate:"required,min=4,max=20"` // Required, min 4, max 20, unique
-	HealthcareName     string    `json:"name" validate:"required,min=5,max=20"`               // Required, min 5, max 20, unique
-	Email              string    `json:"email" validate:"required,email"`                     // Required, valid email, unique
-	Availability       string    `json:"availability" validate:"required,min=2,max=15"`       // Required, min 2, max 15
-	TotalFacilities    int       `json:"total_facilities" validate:"required,min=4,max=15"`   // Required, min 4, max 15
-	TotalMBBSDoc       int       `json:"total_mbbs_doc" validate:"required,min=4,max=15"`     // Required, min 4, max 15
-	TotalWorker        int       `json:"total_worker" validate:"required,min=4,max=15"`       // Required, min 4, max 15
-	NoOfBeds           int       `json:"no_of_beds" validate:"required,min=4,max=15"`         // Required, min 4, max 15
-	DateOfRegistration time.Time `json:"date_of_registration"`                                // Default to current time
-	Password           string    `json:"password" validate:"required,min=3"`                  // Required, min 3
-	Address            Address   `json:"address" validate:"required"`
+	HealthcareID      string `bson:"healthcare_id,omitempty" json:"healthcare_id"`                                  // MongoDB auto-generated ID
+	HealthcareLicense string `bson:"healthcare_license" json:"healthcare_license" validate:"required,min=4,max=20"` // Required, min 4, max 20, unique
+	HealthcareName    string `bson:"name" json:"name" validate:"required,min=5,max=20"`                             // Required, min 5, max 20, unique
+	Email             string `bson:"email" json:"email" validate:"required,email"`                                  // Required, valid email, unique
+	Availability      string `bson:"availability" json:"availability" validate:"required,min=2,max=15"`             // Required, min 2, max 15
+	TotalFacilities   int    `bson:"total_facilities" json:"total_facilities" validate:"required,min=4,max=15"`     // Required, min 4, max 15
+	TotalMBBSDoc      int    `bson:"total_mbbs_doc" json:"total_mbbs_doc" validate:"required,min=4,max=15"`         // Required, min 4, max 15
+	TotalWorker       int    `bson:"total_worker" json:"total_worker" validate:"required,min=4,max=15"`             // Required, min 4, max 15
+	NoOfBeds          int    `bson:"no_of_beds" json:"no_of_beds" validate:"required,min=4,max=15"`                 // Required, min 4, max 15
+	// postgres accept time.Time and
+	// mongo db accept primitive.Datetime
+	DateOfRegistration time.Time `bson:"date_of_registration" json:"date_of_registration"`   // Default to current time
+	Password           string    `bson:"password" json:"password" validate:"required,min=3"` // Required, min 3
+	Address            Address   `bson:"address" json:"address" validate:"required"`
 }
 
 type HealthCarePortal struct {
@@ -50,7 +55,7 @@ type HealthCarePortal struct {
 }
 
 type Login struct {
-	HealthcareID      int    `json:"healthcare_id" validate:"required"`
+	HealthcareID      string `json:"healthcare_id" validate:"required"`
 	HealthcareLicense string `json:"healthcare_license" validate:"required,min=4,max=20"`
 	Password          string `json:"password" validate:"required,min=3"`
 }
@@ -60,10 +65,11 @@ func SignUpAccount(hip *HIPInfo) (*HIPInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	uniquehealthID := uuid.New().String()[:16]
+	fmt.Println(uniquehealthID)
 	return &HIPInfo{
-		HealthcareID:       hip.HealthcareID,
-		HealthcareLicense:  hip.HealthcareLicense,
+		HealthcareID:       uniquehealthID,
+		HealthcareLicense:  uniquehealthID,
 		HealthcareName:     hip.HealthcareName,
 		Email:              hip.Email,
 		Availability:       hip.Availability,
@@ -82,9 +88,8 @@ func SignUpAccount(hip *HIPInfo) (*HIPInfo, error) {
 	}, nil
 }
 
-// this is for appointments sections
 type Appointments struct {
-	HealthcareID    int    `json:"healthcare_id" bson:"healthcare_id" validate:"required"`
+	HealthcareID    string `json:"healthcare_id" bson:"healthcare_id" validate:"required"`
 	AppointmentDate string `json:"appointment_date" bson:"appointment_date"`
 	AppointmentTime string `json:"appointment_time" bson:"appointment_time"`
 	HealthID        string `json:"health_id" bson:"health_id" validate:"required,min=10,max=10"`
@@ -97,28 +102,27 @@ type Appointments struct {
 }
 
 type PatientDetails struct {
-	ID              primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	ID              primitive.ObjectID `bson:"_id,omitempty" json:"_id"`
 	HealthID        string             `bson:"health_id" json:"health_id" validate:"required,min=10,max=10"`
-	FirstName       string             `bson:"first_name" json:"fname" validate:"required,min=3,max=10"`
-	MiddleName      string             `bson:"middle_name" json:"middlename" validate:"max=10"`
-	LastName        string             `bson:"last_name" json:"lname" validate:"required,min=3,max=10"`
+	FirstName       string             `bson:"fname" json:"fname" validate:"required,min=3,max=10"`
+	MiddleName      string             `bson:"middlename" json:"middlename" validate:"max=10"`
+	LastName        string             `bson:"lname" json:"lname" validate:"required,min=3,max=10"`
 	Sex             string             `bson:"sex" json:"sex" validate:"required,min=1,max=5"`
 	HealthcareID    int                `bson:"healthcare_id" json:"healthcare_id" validate:"required"`
-	HealthcareName  string             `bson:"healthcare_name" json:"healthcare_name" validate:"required,min=1,max=30"`
 	DOB             string             `bson:"dob" json:"dob" validate:"required,min=1,max=15"`
-	BloodGroup      string             `bson:"blood_group" json:"bloodgrp" validate:"required,min=1,max=20"`
+	BloodGroup      string             `bson:"bloodgrp" json:"bloodgrp" validate:"required,min=1,max=20"`
 	BMI             string             `bson:"bmi" json:"bmi" validate:"required,min=1,max=10"`
 	MarriageStatus  string             `bson:"marriage_status" json:"marriage_status" validate:"required,min=1,max=20"`
 	Weight          string             `bson:"weight" json:"weight" validate:"required,min=1,max=10"`
 	Email           string             `bson:"email" json:"email" validate:"required,email,max=50"`
-	MobileNumber    string             `bson:"mobile_number" json:"mobilenumber" validate:"required,min=1,max=10"`
+	MobileNumber    string             `bson:"mobilenumber" json:"mobilenumber" validate:"required,min=1,max=10"`
 	AadhaarNumber   string             `bson:"aadhaar_number" json:"aadhar_number" validate:"required,min=1,max=20"`
 	PrimaryLocation string             `bson:"primary_location" json:"primary_location" validate:"required,min=1,max=50"`
 	Sibling         string             `bson:"sibling" json:"sibling" validate:"required,min=1,max=10"`
 	Twin            string             `bson:"twin" json:"twin" validate:"required,min=1,max=10"`
-	FatherName      string             `bson:"father_name" json:"fathername" validate:"required,min=1,max=10"`
-	MotherName      string             `bson:"mother_name" json:"mothername" validate:"required,min=1,max=10"`
-	EmergencyNumber string             `bson:"emergency_number" json:"emergencynumber" validate:"required,min=1,max=10"`
+	FatherName      string             `bson:"fathername" json:"fathername" validate:"required,min=1,max=10"`
+	MotherName      string             `bson:"mothername" json:"mothername" validate:"required,min=1,max=10"`
+	EmergencyNumber string             `bson:"emergencynumber" json:"emergencynumber" validate:"required,min=1,max=10"`
 	CreatedAt       time.Time          `bson:"created_at" json:"created_at"`
 	UpdatedAt       time.Time          `bson:"updated_at" json:"updated_at"`
 	Address         Address            `bson:"address" json:"address"`
@@ -126,29 +130,28 @@ type PatientDetails struct {
 
 func CreatePatient_bioData(HealthcareID int, patient *PatientDetails) (*PatientDetails, error) {
 	newPatient := &PatientDetails{
-		HealthID:        patient.HealthID,        
-		FirstName:       patient.FirstName,       
-		MiddleName:      patient.MiddleName,      
-		LastName:        patient.LastName,     
-		Sex:             patient.Sex,            
-		HealthcareID:    HealthcareID,            
-		HealthcareName:  patient.HealthcareName,  
-		DOB:             patient.DOB,             
-		BloodGroup:      patient.BloodGroup,      
-		BMI:             patient.BMI,            
-		MarriageStatus:  patient.MarriageStatus,  
-		Weight:          patient.Weight,          
-		Email:           patient.Email,           
-		MobileNumber:    patient.MobileNumber,    
-		AadhaarNumber:   patient.AadhaarNumber,   
-		PrimaryLocation: patient.PrimaryLocation, 
-		Sibling:         patient.Sibling,      
-		Twin:            patient.Twin,            
-		FatherName:      patient.FatherName,      
-		MotherName:      patient.MotherName,     
-		EmergencyNumber: patient.EmergencyNumber, 
-		CreatedAt:       time.Now(),     
-		UpdatedAt:       time.Now(),             
+		HealthID:        patient.HealthID,
+		FirstName:       patient.FirstName,
+		MiddleName:      patient.MiddleName,
+		LastName:        patient.LastName,
+		Sex:             patient.Sex,
+		HealthcareID:    HealthcareID,
+		DOB:             patient.DOB,
+		BloodGroup:      patient.BloodGroup,
+		BMI:             patient.BMI,
+		MarriageStatus:  patient.MarriageStatus,
+		Weight:          patient.Weight,
+		Email:           patient.Email,
+		MobileNumber:    patient.MobileNumber,
+		AadhaarNumber:   patient.AadhaarNumber,
+		PrimaryLocation: patient.PrimaryLocation,
+		Sibling:         patient.Sibling,
+		Twin:            patient.Twin,
+		FatherName:      patient.FatherName,
+		MotherName:      patient.MotherName,
+		EmergencyNumber: patient.EmergencyNumber,
+		CreatedAt:       time.Now(),
+		UpdatedAt:       time.Now(),
 	}
 
 	newPatient.Address = Address{
@@ -160,13 +163,24 @@ func CreatePatient_bioData(HealthcareID int, patient *PatientDetails) (*PatientD
 	return newPatient, nil
 }
 
-type PatientProblem struct {
-	PProblem        string    `json:"p_problem" validate:"required,min=3,max=20"`   // Required, min 3, max 20 characters
-	Description     string    `json:"description" validate:"required,min=3,max=50"` // Required, min 3, max 50 characters
-	HealthID        int       `json:"health_id" validate:"required"`
-	HealthcareName  string    `json:"healthcare_name" validate:"required"`
-	MedicalSeverity string    `json:"medical_severity" validate:"required"`
-	CreatedAt       time.Time `json:"created_at"`
+type PatientRecords struct {
+	ID              primitive.ObjectID `bson:"_id,omitempty" json:"id"`                             // MongoDB ID field
+	Issue           string             `bson:"issue" json:"issue" validate:"required,min=3,max=20"` // Required, min 3, max 20 characters
+	Createdby_      string             `bson:"Createdby_" json:"Createdby_" validate:"required"`
+	Description     string             `bson:"description" json:"description" validate:"required,min=3,max=50"` // Required, min 3, max 50 characters
+	HealthID        string             `bson:"health_id" json:"health_id" validate:"required"`
+	MedicalSeverity string             `bson:"medical_severity" json:"medical_severity" validate:"required"`
+	CreatedAt       time.Time          `bson:"created_at" json:"created_at"`
+}
+
+func CreatePatientRecords(healthcare_id string, patientRecords *PatientRecords) (*PatientRecords, error) {
+	return &PatientRecords{
+		Issue:           patientRecords.Issue,
+		Createdby_:      healthcare_id,
+		Description:     patientRecords.Description,
+		HealthID:        patientRecords.HealthID,
+		MedicalSeverity: patientRecords.MedicalSeverity,
+	}, nil
 }
 
 // Utility structs

@@ -3,7 +3,6 @@ package databases
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	// "strconv"
 
@@ -21,7 +20,7 @@ import (
 type MongoStore struct {
 	db         *mongo.Client
 	database   string
-	collection string
+	collection []string
 }
 
 type Server_message struct {
@@ -30,7 +29,7 @@ type Server_message struct {
 }
 
 // Connect to MongoDB
-func ConnectToMongoDB(url, database, collection string) (*MongoStore, error) {
+func ConnectToMongoDB(url, database string, collection []string) (*MongoStore, error) {
 	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(url))
 	if err != nil {
 		return nil, err
@@ -49,23 +48,22 @@ func ConnectToMongoDB(url, database, collection string) (*MongoStore, error) {
 	}, nil
 }
 
-func (m *MongoStore) GetAppointments(healthcareID int) ([]*Appointments, error) {
-    coll := m.db.Database(m.database).Collection(m.collection)
-    
-	healthcareIDStr := strconv.Itoa(healthcareID)
-    filter := bson.D{{"healthcareID", healthcareIDStr}}
-    
-    cursor, err := coll.Find(context.TODO(), filter)
-    if err != nil {
-        return nil, fmt.Errorf("error finding appointments: %w", err)
-    }
-    defer cursor.Close(context.TODO())
+func (m *MongoStore) GetAppointments(healthcareID string, list int) ([]*Appointments, error) {
+	coll := m.db.Database(m.database).Collection("appointments")
 
-    var appointments []*Appointments
-    if err = cursor.All(context.TODO(), &appointments); err != nil {
-        return nil, fmt.Errorf("error decoding appointments: %w", err)
-    }
-    return appointments, nil
+	filter := bson.D{{Key: "healthcare_id", Value: healthcareID}}
+	findOptions := options.Find().SetLimit(int64(list))
+	cursor, err := coll.Find(context.TODO(), filter, findOptions)
+	if err != nil {
+		return nil, fmt.Errorf("error finding appointments: %w", err)
+	}
+	defer cursor.Close(context.TODO())
+
+	var appointments []*Appointments
+	if err = cursor.All(context.TODO(), &appointments); err != nil {
+		return nil, fmt.Errorf("error decoding appointments: %w", err)
+	}
+	return appointments, nil
 }
 
 func (m *MongoStore) CreatePatient_bioData(healthcareID int, patient *PatientDetails) (*PatientDetails, error) {
@@ -74,7 +72,7 @@ func (m *MongoStore) CreatePatient_bioData(healthcareID int, patient *PatientDet
 		return nil, err
 	}
 	patientDetails.ID = primitive.NewObjectID()
-	coll := m.db.Database(m.database).Collection(m.collection)
+	coll := m.db.Database(m.database).Collection("patient_details")
 	_, err = coll.InsertOne(context.TODO(), patientDetails)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert patient details: %v", err)
@@ -83,93 +81,131 @@ func (m *MongoStore) CreatePatient_bioData(healthcareID int, patient *PatientDet
 	return patientDetails, nil
 }
 
-func (m *MongoStore) GetPatient_bioData(patient_healthcareID string) (*PatientDetails, error){
-	coll := m.db.Database(m.database).Collection(m.collection)
-    
-    filter := bson.D{{"health_id", patient_healthcareID}}
-    cursor, err := coll.Find(context.TODO(), filter)
-    if err != nil {
-        return nil, fmt.Errorf("error finding Patient with given id: %w", err)
-    }
-    defer cursor.Close(context.TODO())
+func (m *MongoStore) GetPatient_bioData(patient_healthcareID string) (*PatientDetails, error) {
+	coll := m.db.Database(m.database).Collection("patient_details")
 
-    var patientdetails []PatientDetails
-    if err = cursor.All(context.TODO(), &patientdetails); err != nil {
-        return nil, fmt.Errorf("error decoding appointments: %w", err)
-    }
-	if len(patientdetails)==0 {
+	filter := bson.D{{Key: "health_id", Value: patient_healthcareID}}
+	cursor, err := coll.Find(context.TODO(), filter)
+	if err != nil {
+		return nil, fmt.Errorf("error finding Patient with given id: %w", err)
+	}
+	defer cursor.Close(context.TODO())
+
+	var patientdetails []PatientDetails
+	if err = cursor.All(context.TODO(), &patientdetails); err != nil {
+		return nil, fmt.Errorf("error decoding appointments: %w", err)
+	}
+	if len(patientdetails) == 0 {
 		return nil, fmt.Errorf("no patient found with given patient_id %s, please create a new one", patient_healthcareID)
 	}
 
-    return &patientdetails[0], nil
+	return &patientdetails[0], nil
 }
 
-// func (m *MongoStore) DeleteAccount(id int) error {
+func (m *MongoStore) CreateHealthcare_details(HIPInfo *HIPInfo) (*HIPInfo, error) {
+	coll := m.db.Database(m.database).Collection("healthcare_info")
+	_, err := coll.InsertOne(context.TODO(), HIPInfo)
+	if err != nil {
+		return nil, err
+	}
+	return HIPInfo, nil
+}
 
-// 	coll := m.db.Database(m.database).Collection(m.collection)
-// 	// idNumber, _ := primitive.ObjectIDFromHex(id)
-// 	filter := bson.D{{"id", id}}
+func (m *MongoStore) GetHealthcare_details(healthcareId string) (*HIPInfo, error) {
+	coll := m.db.Database(m.database).Collection("healthcare_info")
+	filter := bson.D{{Key: "healthcare_id", Value: healthcareId}} // Match the BSON field name with struct tag
+	cursor, err := coll.Find(context.TODO(), filter)
+	if err != nil {
+		return nil, fmt.Errorf("no healthcare found with given id: %s", healthcareId)
+	}
+	defer cursor.Close(context.TODO())
 
-// 	DeletedCount, err := coll.DeleteOne(context.TODO(), filter)
-// 	if err != nil {
-// 		return err
-// 	}
+	var hipdetails []HIPInfo
+	if err = cursor.All(context.TODO(), &hipdetails); err != nil {
+		return nil, fmt.Errorf("error decoding HIP details: %w", err)
+	}
 
-// 	if DeletedCount.DeletedCount != 1 {
-// 		return fmt.Errorf("no account found with this Id: %d", id)
-// 	}
-// 	return nil
-// }
+	if len(hipdetails) == 0 {
+		return nil, fmt.Errorf("no healthcare found with given id: %s", healthcareId)
+	}
 
-// func (m *MongoStore) UpdateAccount(acc *Account) error {
+	// No manual date parsing required if MongoDB is storing it as ISODate
+	return &hipdetails[0], nil
+}
 
-// 	coll := m.db.Database(m.database).Collection(m.collection)
-// 	// idNumber, _ := primitive.ObjectIDFromHex(id)
-// 	filter := bson.D{{"id", acc.ID}}
+func (m *MongoStore) CreatepatientRecords(healthcare_id string, patientrecords *PatientRecords) (*PatientRecords, error) {
+	coll := m.db.Database(m.database).Collection("patient_records")
+	patientrecords, err := CreatePatientRecords(healthcare_id, patientrecords)
+	if err != nil {
+		return nil, err
+	}
+	id, err := coll.InsertOne(context.TODO(), patientrecords)
+	if err != nil {
+		return nil, err
+	}
+	if objectID, ok := id.InsertedID.(primitive.ObjectID); ok {
+		patientrecords.ID = objectID
+	} else {
+		return nil, fmt.Errorf("failed to convert inserted ID to ObjectID")
+	}
+	return patientrecords, nil
+}
 
-// 	update := bson.D{{"$set", bson.D{{"firstname", acc.FirstName}, {"lastname", acc.LastName}, {"balance", acc.Balance}}}}
-// 	UpdateResult, err := coll.UpdateOne(context.TODO(), filter, update)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	if UpdateResult.MatchedCount != 1 {
-// 		return fmt.Errorf("no user found with id: %d", acc.ID)
-// 	}
-// 	return nil
-// }
+func (m *MongoStore) GetPatientRecords(health_id string, list int) (*[]PatientRecords, error) {
+	coll := m.db.Database(m.database).Collection("patient_records")
+	filter := bson.D{{Key: "health_id", Value: health_id}}
+	findOptions := options.Find().SetLimit(int64(list))
+	cursor, err := coll.Find(context.TODO(), filter, findOptions)
+	if err != nil {
+		return nil, fmt.Errorf("error in database")
+	}
+	defer cursor.Close(context.TODO())
+	var patientRecords []PatientRecords
+	if err = cursor.All(context.TODO(), &patientRecords); err != nil {
+		return nil, fmt.Errorf("error decoding patient records: %w", err)
+	}
+	return &patientRecords, nil
+}
 
-// func (m *MongoStore) GetAccounts() ([]*Account, error) {
-// 	coll := m.db.Database(m.database).Collection(m.collection)
-// 	filter := bson.D{{}}
+func (m *MongoStore) UpdatePatientBioData(healthID string, updates map[string]interface{}) (*PatientDetails, error) {
+	coll := m.db.Database(m.database).Collection("patient_details")
 
-// 	cursor, err := coll.Find(context.TODO(), filter)
-// 	if err != nil {
-// 		panic(err)
-// 	}
+	cleanedUpdates := map[string]interface{}{}
+	for key, value := range updates {
+		if value != "" && value != "N/A" {
+			cleanedUpdates[key] = value
+		}
+	}
 
-// 	acc := []*Account{}
-// 	if err = cursor.All(context.TODO(), &acc); err != nil {
-// 		panic(err)
-// 	}
+	if len(cleanedUpdates) == 0 {
+		return nil, fmt.Errorf("no valid fields to update")
+	}
 
-// 	return acc, nil
-// }
+	filter := bson.D{{Key: "health_id", Value: healthID}}
+	update := bson.D{{Key: "$set", Value: cleanedUpdates}}
 
-// func (m *MongoStore) GetAccountByID(id int) (*Account, error) {
-// 	coll := m.db.Database(m.database).Collection(m.collection)
-// 	// idNumber, _ := primitive.ObjectIDFromHex(id)
-// 	filter := bson.D{{"id", id}}
+	// Execute the update operation
+	result, err := coll.UpdateOne(context.Background(), filter, update)
+	if err != nil {
+		return nil, err
+	}
+	if result.MatchedCount == 0 {
+		return nil, fmt.Errorf("no document found with health_id %s", healthID)
+	}
 
-// 	account := Account{}
-// 	err := coll.FindOne(context.TODO(), filter).Decode(&account)
-// 	if err != nil {
-// 		if err == mongo.ErrNoDocuments {
-// 			return nil, err
-// 		}
-// 		panic(err)
-// 	}
-// 	return &account, nil
-// }
+	if result.ModifiedCount == 0 {
+		return nil, fmt.Errorf("no fields were updated for health_id %s", healthID)
+	}
+
+	// Retrieve and return the updated patient details
+	var updatedPatient PatientDetails
+	err = coll.FindOne(context.Background(), filter).Decode(&updatedPatient)
+	if err != nil {
+		return nil, err
+	}
+
+	return &updatedPatient, nil
+}
 
 // func (m *MongoStore) TransferAmount(fromID, toID, amount int) error {
 // 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
