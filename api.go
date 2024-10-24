@@ -85,6 +85,11 @@ type Store interface {
 	CreatepatientRecords(string, *mod.PatientRecords) (*mod.PatientRecords, error)
 	GetPatientRecords(string, int) (*[]mod.PatientRecords, error)
 	UpdatePatientBioData(string, map[string]interface{}) (*mod.PatientDetails, error)
+
+	// rabbitmq methods goes here...
+	Notification(string, string, string, string) error
+	Appointment(category string) error
+	Patient_records(category string) error
 }
 
 type APIServer struct {
@@ -142,6 +147,10 @@ func (s *APIServer) SignUp(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+
+	// send Email to healthcare that his account has been created now
+	s.store.Notification("account_created", user.HealthcareName, user.Email, user.HealthcareID)
+
 	return writeJSON(w, http.StatusCreated, map[string]interface{}{
 		"status": "Successfully Created",
 		"Healthcare_details": map[string]interface{}{
@@ -185,6 +194,9 @@ func (s *APIServer) LoginUser(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	// notify user everytime user login !
+	s.store.Notification("account_login", hip.HealthcareName, hip.Email, hip.HealthcareID)
+
 	return writeJSON(w, http.StatusOK, map[string]interface{}{
 		"Expires":         "5d",
 		"token":           tokenString,
@@ -253,6 +265,9 @@ func (s *APIServer) DeleteAccount(w http.ResponseWriter, r *http.Request) error 
 		})
 	}
 
+	// send email to user
+	// s.store.Notification("delete_account", )
+
 	return writeJSON(w, http.StatusOK, map[string]string{"status": "account deletion scheduled, contact to tron21vaibhav@gmail.com to remove deletion ASAP."})
 }
 
@@ -312,6 +327,10 @@ func (s *APIServer) CreatePatient_bioData(w http.ResponseWriter, r *http.Request
 			"message": "User Already exists",
 		})
 	}
+
+	// Notify user via email
+	s.store.Notification("patient_biodata_created", patientDetails.FirstName, patientDetails.Email, patientDetails.HealthcareID)
+
 	return writeJSON(w, http.StatusCreated, patientDetails)
 }
 
@@ -333,6 +352,9 @@ func (s *APIServer) GetpatientBioData(w http.ResponseWriter, r *http.Request) er
 	if err != nil {
 		return err
 	}
+	// Notify user via email
+	s.store.Notification("patient_biodata_viewed", patientDetails.FirstName, patientDetails.Email, patientDetails.HealthcareID)
+
 	return writeJSON(w, http.StatusOK, patientDetails)
 }
 
@@ -377,6 +399,9 @@ func (s *APIServer) CreatepatientRecords(w http.ResponseWriter, r *http.Request)
 			"message": err,
 		})
 	}
+	// Notify user via email
+	// s.store.Notification("patient_biodata_viewed", patientrecords_created, patientDetails.Email, patientDetails.HealthcareID)
+
 	return writeJSON(w, http.StatusCreated, patientrecords_created)
 }
 
@@ -408,6 +433,15 @@ func (s *APIServer) GetPatientRecords(w http.ResponseWriter, r *http.Request) er
 			"message": "Could not fetch Records",
 		})
 	}
+	
+	// Notify user via email
+	// healthcareId, ok := r.Context().Value(contextKeyHealthCareID).(string)
+	// if !ok {
+	// 	return writeJSON(w, http.StatusUnauthorized, map[string]string{"message": "StatusUnauthorized"})
+	// }
+
+	// s.store.Notification("patient_biodata_viewed", patientrecords_created, patientDetails.Email, healthcareId)
+
 	return writeJSON(w, http.StatusOK, map[string]interface{}{
 		"message":         "successfull",
 		"pagination":      list,

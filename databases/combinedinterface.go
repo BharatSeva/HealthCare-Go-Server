@@ -1,13 +1,18 @@
 package databases
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+	mq "vaibhavyadav-dev/healthcareServer/rabbitmq"
+)
 
 type CombinedStore struct {
 	postgres *PostgresStore
 	mongodb  *MongoStore
-}  
+	rabbitmq *mq.Rabbitmq
+}
 
-func NewCombinedStore(postgresConn string, mongoURI string, dbName string, collection []string) (*CombinedStore, error) {
+func NewCombinedStore(rabbitMqURL, postgresConn, mongoURI string, dbName string, collection []string) (*CombinedStore, error) {
 	postgres, err := ConnectToPostgreSQL(postgresConn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize postgres: %w", err)
@@ -24,9 +29,15 @@ func NewCombinedStore(postgresConn string, mongoURI string, dbName string, colle
 		return nil, fmt.Errorf("failed to init mongodb: %w", err)
 	}
 
+	conn, err := mq.Connect2rabbitmq(rabbitMqURL)
+	if err != nil {
+		log.Fatal("could not connect to server ", err.Error())
+	}
+
 	return &CombinedStore{
 		postgres: postgres,
 		mongodb:  mongodb,
+		rabbitmq: conn,
 	}, nil
 }
 
@@ -79,4 +90,15 @@ func (s *CombinedStore) UpdatePatientBioData(healthID string, updates map[string
 }
 func (s *CombinedStore) CreateHealthcare_details(healthcare_info *HIPInfo) (*HIPInfo, error) {
 	return s.mongodb.CreateHealthcare_details(healthcare_info)
+}
+
+// rabbitmq implementation goes here
+func (s *CombinedStore) Notification(category, name, email, id string) error {
+	return s.rabbitmq.Notification(category, name, email, id)
+}
+func (s *CombinedStore) Appointment(category string) error {
+	return s.rabbitmq.Appointment(category)
+}
+func (s *CombinedStore) Patient_records(category string) error {
+	return s.rabbitmq.Patient_records(category)
 }
