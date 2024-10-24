@@ -1,34 +1,77 @@
 # Healthcare Service API - Golang
 
-This repository contains the Healthcare Service API, built with Golang, to manage healthcare records, appointments, and notifications. The service is designed for high performance and scalability.
+This repository contains the **Healthcare Service API**, a scalable and high-performance service built with **Golang** for managing patient healthcare records, appointments, and notifications. The API is optimized for **low latency** and **high concurrency**, leveraging Golang.
 
 ## Features
 
-- **Patient Management:** Create, update, retrieve, and delete patient information.
-- **Appointment Scheduling:** Manage appointment booking, rescheduling, and cancellations.
-- **Healthcare Records:** Store and retrieve patient medical history and records.
-- **Notifications:** Support email/SMS notifications for appointment reminders.
-- **High Performance:** Optimized for low latency and high concurrency with Golang's concurrency model.
+- **Patient Management:** Handle patient information efficiently with CRUD operations (Create, Retrieve, Update, Delete).
+- **Appointment Scheduling:** Seamless management of appointment booking, rescheduling, and cancellations.
+- **Healthcare Records:** Store and retrieve patient medical history and records securely.
+- **Notifications:** Send email/SMS notifications for appointment reminders and updates.
+- **JWT-based Authentication:** Secure access to all API endpoints with JSON Web Token (JWT) for authentication.
+- **Database Integration:** Seamless data management with PostgreSQL and MongoDB.
+- **Redis Caching:** Utilize Redis for caching and rate limiting to enhance performance. (coming Soon)
+- **RabbitMQ:** Process Request Asynchronously (coming Soon)
+- **High Performance:** Optimized for handling large requests concurrently with low response time.
+- **Docker Support:** Deploy easily with Docker for a consistent and reliable environment.
+
+## Table of Contents
+
+- [Features](#features)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Environment Variables](#environment-variables)
+- [API Endpoints](#api-endpoints)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Requirements
 
 - Go 1.20+
-- PostgreSQL/MongoDB (Adjust as per your database)
-- Redis (for caching and rate limiting)
+- PostgreSQL and MongoDB
 - Docker (For containerization)
 
-## Features
+## Installation
 
-- **Patient Management:** Create, update, retrieve, and delete patient information.
-- **Appointment Scheduling:** Manage appointment booking, rescheduling, and cancellations.
-- **Healthcare Records:** Store and retrieve patient medical history and records.
-- **Notifications:** Support email/SMS notifications for appointment reminders.
-- **High Performance:** Optimized for low latency and high concurrency with Golang's goroutines.
-- **Database Integration:** Seamless connectivity with PostgreSQL/MongoDB for data storage.
-- **Caching:** Use of Redis for caching frequently accessed data to enhance response times.
-- **Rate Limiting:** Protect the service from abuse with a rate-limiting mechanism.
-- **Secure:** JWT-based authentication for secure access to API endpoints.
-- **Docker Support:** Easily deployable using Docker for consistent environments.
+1. Clone the repository:
+    ```bash
+    https://github.com/BharatSeva/HealthCare-Go-Server.git
+    cd HealthCare-Go-Server
+    ```
+
+2. Install Go modules:
+    ```bash
+    go mod download
+    ```
+
+3. Run Docker to set up PostgreSQL, MongoDB, and Redis:
+    ```bash
+    docker-compose up -d
+    ```
+
+4. Start the server:
+    ```bash
+    go run main.go
+    ```
+
+## Environment Variables
+
+Make sure to set up the following environment variables:
+
+```bash
+MONGOURL=mongodb://rootuser:rootuser@mongodb:27017 
+POSTGRES=postgres://rootuser:rootuser@postgres:5432/postgres?sslmode=disable
+PORT=:3000
+KEY=VAIBHAVYADAV
+```
+
+## API Endpoints  
+Please find Postman API Collection [here](./Golang_HealthCare_BharatSeva.postman_collection.json)  
 
 
-### More Features aligned in feature updates, stay tuned !
+## LICENSE  
+This project is licensed under the Apache-2.0 license - see the [LICENSE](./LICENSE) file for details.   
+
+
+## Contributing
+Please find [CONTRIBUTING](./CONTRIBUTING.md) file to know how to get started with contributing.  
