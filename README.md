@@ -31,6 +31,18 @@ This repository contains the **Healthcare Service API**, a scalable and high-per
 - PostgreSQL and MongoDB
 - Docker (For containerization)
 
+## Environment Variables
+
+Make sure to set up the following environment variables:
+
+```bash
+MONGOURL=mongodb://rootuser:rootuser@mongodb:27017 
+POSTGRES=postgres://rootuser:rootuser@postgres:5432/postgres?sslmode=disable
+PORT=:3000
+KEY=VAIBHAVYADAV
+```
+
+
 ## Installation
 
 1. Clone the repository:
@@ -54,16 +66,13 @@ This repository contains the **Healthcare Service API**, a scalable and high-per
     go run main.go
     ```
 
-## Environment Variables
+5. Alternatively, you can start the docker container for same (make sure you've set .env file before this else it will be rejected)
+    ```bash
+    docker-compose up -d
+    ```
 
-Make sure to set up the following environment variables:
 
-```bash
-MONGOURL=mongodb://rootuser:rootuser@mongodb:27017 
-POSTGRES=postgres://rootuser:rootuser@postgres:5432/postgres?sslmode=disable
-PORT=:3000
-KEY=VAIBHAVYADAV
-```
+
 
 ## API Endpoints  
 Please find Postman API Collection [here](./Golang_HealthCare_BharatSeva.postman_collection.json)  
