@@ -10,7 +10,7 @@ type PostgresStore struct {
 	db *sql.DB
 }
 
-func NewPostgresStore(url string) (*PostgresStore, error) {
+func ConnectToPostgreSQL(url string) (*PostgresStore, error) {
 	db, err := sql.Open("postgres", url)
 	if err != nil {
 		return nil, err
@@ -44,6 +44,7 @@ func (s *PostgresStore) CreateTable() error {
 			no_of_beds INTEGER NOT NULL,
 			date_of_registration TIMESTAMP DEFAULT NOW(),
 			password TEXT NOT NULL,
+			about VARCHAR(300) NOT NULL,
 			country VARCHAR(30) NOT NULL,
 			state VARCHAR(20) NOT NULL,
 			city VARCHAR(30) NOT NULL,
@@ -95,9 +96,9 @@ func (s *PostgresStore) CreateTable() error {
 func (s *PostgresStore) SignUpAccount(hip *HIPInfo) (int64, error) {
 	query := `INSERT INTO HIP_TABLE (healthcare_id, healthcare_license, 
 		healthcare_name, email, availability, total_facilities, 
-		total_mbbs_doc, total_worker, no_of_beds, password, country, 
+		total_mbbs_doc, total_worker, no_of_beds, password, about, country, 
 		state, city, landmark)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING healthcare_id`
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING healthcare_id`
 
 	query1 := `INSERT INTO HealthCare_Logs (healthcare_id, scheduled_deletion, biodata_viewed_count, 
 			  healthID_created_count, account_locked, records_created_count, recordsViewed_count, 
@@ -109,14 +110,14 @@ func (s *PostgresStore) SignUpAccount(hip *HIPInfo) (int64, error) {
 	exists, err := checkEmailExists(s.db, hip.Email)
 	if err != nil {
 		return 0, err
-	}
+	} 
 	if exists {
 		return 0, fmt.Errorf("email %s already exists", hip.Email)
 	}
 
 	// Insert into HIP_TABLE and get the generated healthcare_id
 	var healthcareID string
-	err = s.db.QueryRow(query, hip.HealthcareID, hip.HealthcareLicense, hip.HealthcareName, hip.Email, hip.Availability, hip.TotalFacilities, hip.TotalMBBSDoc, hip.TotalWorker, hip.NoOfBeds, hip.Password, hip.Address.Country, hip.Address.State, hip.Address.City, hip.Address.Landmark).Scan(&healthcareID)
+	err = s.db.QueryRow(query, hip.HealthcareID, hip.HealthcareLicense, hip.HealthcareName, hip.Email, hip.Availability, hip.TotalFacilities, hip.TotalMBBSDoc, hip.TotalWorker, hip.NoOfBeds, hip.Password, hip.About, hip.Address.Country, hip.Address.State, hip.Address.City, hip.Address.Landmark).Scan(&healthcareID)
 	if err != nil {
 		return 0, err
 	}
@@ -170,7 +171,7 @@ func (s *PostgresStore) ChangePreferance(healthcareId string, preferance map[str
 	return nil
 }
 
-func (s *PostgresStore) GetPreferance(healthcareId int) (*ChangePreferance, error) {
+func (s *PostgresStore) GetPreferance(healthcareId string) (*ChangePreferance, error) {
 	query := `
 		SELECT 
 			HIP_TABLE.email, 
@@ -186,9 +187,7 @@ func (s *PostgresStore) GetPreferance(healthcareId int) (*ChangePreferance, erro
 			HIP_TABLE.healthcare_id = $1;
 	`
 	preferance := &ChangePreferance{}
-	fmt.Println(healthcareId)
 	err := s.db.QueryRow(query, healthcareId).Scan(&preferance.Email, &preferance.IsAvailable, &preferance.Scheduled_deletion)
-	fmt.Println(preferance)
 	if err != nil {
 		return nil, err
 	}

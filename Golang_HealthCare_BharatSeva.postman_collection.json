@@ -1,0 +1,362 @@
+{
+	"info": {
+		"_postman_id": "5c7adb17-74d8-4026-87a0-b76124c70d6b",
+		"name": "Golang_HealthCare_BharatSeva",
+		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json",
+		"_exporter_id": "24259607"
+	},
+	"item": [
+		{
+			"name": "Register",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var jsonData = pm.response.json();\r",
+							"var healthcare_id = jsonData.Healthcare_details.healthcare_id;\r",
+							"\r",
+							"pm.collectionVariables.set(\"H_ID\", healthcare_id);"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"name\": \"{{$randomFullName}} Hospital\",\r\n    \"availability\": \"Yes\",\r\n    \"total_facilities\": 200,\r\n    \"total_mbbs_doc\": 58,\r\n    \"total_worker\": 400,\r\n    \"no_of_beds\": 200,\r\n    \"email\": \"{{$randomEmail}}\",\r\n    \"appointment_fee\": 300,\r\n    \"about\": \"{{$randomJobDescriptor}}\",\r\n    \"password\": \"11\",\r\n    \"address\": {\r\n        \"country\": \"{{$randomCountry}}\",\r\n        \"landmark\": \"{{$randomStreetName}}\",\r\n        \"city\": \"{{$randomCity}}\",\r\n        \"state\": \"{{$randomCity}}\"\r\n    }\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:3000/api/v1/healthcareauth/register"
+			},
+			"response": []
+		},
+		{
+			"name": "Login",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var jsonData = pm.response.json();\r",
+							"var token = jsonData.token;\r",
+							"\r",
+							"pm.collectionVariables.set(\"HIP_TOKEN\", token);"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				},
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"healthcare_id\": \"{{H_ID}}\",\r\n    \"healthcare_license\": \"{{H_ID}}\",\r\n    \"password\": \"11\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:3000/api/v1/healthcareauth/login"
+			},
+			"response": []
+		},
+		{
+			"name": "Change Preferance",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": {
+						"token": "{{HIP_TOKEN}}"
+					}
+				},
+				"method": "PATCH",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"email\": \"asdfasfasdfasdf@gmail.com\",\r\n    \"isAvailable\": true,\r\n    \"scheduled_deletion\": false\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:3000/api/v1/healthcare/changepreferance"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Preferance",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": {
+						"token": "{{HIP_TOKEN}}"
+					}
+				},
+				"method": "GET",
+				"header": [],
+				"url": "http://localhost:3000/api/v1/healthcare/getpreferance"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Appointments",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": {
+						"token": "{{HIP_TOKEN}}"
+					}
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:3000/api/v1/healthcare/getappointments?list=2",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"v1",
+						"healthcare",
+						"getappointments"
+					],
+					"query": [
+						{
+							"key": "list",
+							"value": "2"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Delete Account",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": {
+						"token": "{{HIP_TOKEN}}"
+					}
+				},
+				"method": "DELETE",
+				"header": [],
+				"url": "http://localhost:3000/api/v1/healthcare/deleteaccount"
+			},
+			"response": []
+		},
+		{
+			"name": "Create Patient Bio-data",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": {
+						"token": "{{HIP_TOKEN}}"
+					}
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"health_id\": \"11\",\r\n    \"fname\": \"VaihavTTTT\",\r\n    \"middlename\": \"name\",\r\n    \"lname\": \"laname\",\r\n    \"sex\": \"Male\",\r\n    \"dob\": \"DOMD\",\r\n    \"bloodgrp\": \"N/A\",\r\n    \"bmi\": \"N/A\",\r\n    \"marriage_status\": \"Single\",\r\n    \"weight\": \"N/A\",\r\n    \"email\": \"vaibhavyadav@gmail.com\",\r\n    \"mobilenumber\": \"asdf\",\r\n    \"aadhar_number\": \"123\",\r\n    \"primary_location\": \"123\",\r\n    \"sibling\": \"N/A\",\r\n    \"twin\": \"No\",\r\n    \"fathername\": \"N/A\",\r\n    \"mothername\": \"N/A\",\r\n    \"emergencynumber\": \"2021071042\",\r\n    \"created_at\": \"2024-10-22T23:05:19.3651892+05:30\",\r\n    \"updated_at\": \"2024-10-22T23:05:19.3651892+05:30\",\r\n    \"address\": {\r\n        \"country\": \"11\",\r\n        \"state\": \"11\",\r\n        \"city\": \"11\",\r\n        \"landmark\": \"11\"\r\n    }\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:3000/api/v1/healthcare/createpatientbiodata"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Patient Bio Data",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": {
+						"token": "{{HIP_TOKEN}}"
+					}
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:3000/api/v1/healthcare/getpatientbiodata?healthID=11",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"v1",
+						"healthcare",
+						"getpatientbiodata"
+					],
+					"query": [
+						{
+							"key": "healthID",
+							"value": "11"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Healthcare details",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": {
+						"token": "{{HIP_TOKEN}}"
+					}
+				},
+				"method": "GET",
+				"header": [],
+				"url": "http://localhost:3000/api/v1/healthcare/details"
+			},
+			"response": []
+		},
+		{
+			"name": "Create Records",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": {
+						"token": "{{HIP_TOKEN}}"
+					}
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"issue\":\"Golang issue\",\r\n    \"description\":\"Golang description\",\r\n    \"health_id\":\"2021071042\",\r\n    \"medical_severity\":\"golang medical medical_severity\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": "http://localhost:3000/api/v1/healthcare/createrecords"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Patient Records",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": {
+						"token": "{{HIP_TOKEN}}"
+					}
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:3000/api/v1/healthcare/getpatientrecords?healthID=2021071042&list=2",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"v1",
+						"healthcare",
+						"getpatientrecords"
+					],
+					"query": [
+						{
+							"key": "healthID",
+							"value": "2021071042"
+						},
+						{
+							"key": "list",
+							"value": "2"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Update Patient Data",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": {
+						"token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHBpcmVzQXQiOjE1MDAsImhlYWx0aGNhcmVJRCI6MX0.mKr_RlECS5YpWiUPO1C4EOEyvPjHnVK51EABXbMsuAU"
+					}
+				},
+				"method": "PATCH",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"fname\": \"adfasdfasdf asdfsafsafa sdfasdf asdf sadf sdfa\",\r\n    \"middlename\": \"name\",\r\n    \"lname\": \"aaaa\",\r\n    \"sex\": \"Male\",\r\n    \"dob\": \"DOMD\",\r\n    \"bloodgrp\": \"N/A\",\r\n    \"bmi\": \"N/A\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:3000/api/v1/healthcare/updatepatientbiodata?healthID=11",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"v1",
+						"healthcare",
+						"updatepatientbiodata"
+					],
+					"query": [
+						{
+							"key": "healthID",
+							"value": "11"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"variable": [
+		{
+			"key": "HIP_TOKEN",
+			"value": ""
+		},
+		{
+			"key": "H_ID",
+			"value": ""
+		}
+	]
+}

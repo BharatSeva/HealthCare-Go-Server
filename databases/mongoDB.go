@@ -4,13 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	// "strconv"
-
-	// "errors"
-	// "fmt"
-
-	// "time"
-
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -28,6 +21,29 @@ type Server_message struct {
 	Status  string `json:"status"`
 }
 
+func Seed_createUniquepatient(collection *mongo.Collection) error {
+	index := mongo.IndexModel{
+		Keys:    bson.D{{Key: "health_id", Value: 1}, {Key: "mobilenumber", Value: 1}, {Key: "email", Value: 1}},
+		Options: options.Index().SetUnique(true),
+	}
+	_, err := collection.Indexes().CreateOne(context.TODO(), index)
+	if err != nil {
+		return fmt.Errorf("failed to create index: %v", err)
+	}
+	return nil
+}
+func Seed_createUniqueHealthInfo(collection *mongo.Collection) error {
+	index := mongo.IndexModel{
+		Keys:    bson.D{{Key: "name", Value: 1}, {Key: "email", Value: 1}, {Key: "Address", Value: 1}},
+		Options: options.Index().SetUnique(true),
+	}
+	_, err := collection.Indexes().CreateOne(context.TODO(), index)
+	if err != nil {
+		return fmt.Errorf("failed to create index: %v", err)
+	}
+	return nil
+}
+
 // Connect to MongoDB
 func ConnectToMongoDB(url, database string, collection []string) (*MongoStore, error) {
 	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(url))
@@ -35,17 +51,24 @@ func ConnectToMongoDB(url, database string, collection []string) (*MongoStore, e
 		return nil, err
 	}
 
-	// Ping the MongoDB server to ensure connection is established
 	err = client.Ping(context.TODO(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to MongoDB: %v", err)
 	}
-
 	return &MongoStore{
 		db:         client,
 		database:   database,
 		collection: collection,
 	}, nil
+}
+
+func (m *MongoStore) Init() error {
+	coll := m.db.Database(m.database).Collection("patient_details")
+	err :=  Seed_createUniquepatient(coll)
+	if err != nil { return err }
+
+	coll = m.db.Database(m.database).Collection("healthcare_info")
+	return Seed_createUniqueHealthInfo(coll)
 }
 
 func (m *MongoStore) GetAppointments(healthcareID string, list int) ([]*Appointments, error) {
@@ -66,7 +89,7 @@ func (m *MongoStore) GetAppointments(healthcareID string, list int) ([]*Appointm
 	return appointments, nil
 }
 
-func (m *MongoStore) CreatePatient_bioData(healthcareID int, patient *PatientDetails) (*PatientDetails, error) {
+func (m *MongoStore) CreatePatient_bioData(healthcareID string, patient *PatientDetails) (*PatientDetails, error) {
 	patientDetails, err := CreatePatient_bioData(healthcareID, patient)
 	if err != nil {
 		return nil, err
@@ -75,6 +98,9 @@ func (m *MongoStore) CreatePatient_bioData(healthcareID int, patient *PatientDet
 	coll := m.db.Database(m.database).Collection("patient_details")
 	_, err = coll.InsertOne(context.TODO(), patientDetails)
 	if err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			return nil, fmt.Errorf("mobilenumber or healthid or email already exists")
+		}
 		return nil, fmt.Errorf("failed to insert patient details: %v", err)
 	}
 
@@ -113,7 +139,7 @@ func (m *MongoStore) CreateHealthcare_details(HIPInfo *HIPInfo) (*HIPInfo, error
 
 func (m *MongoStore) GetHealthcare_details(healthcareId string) (*HIPInfo, error) {
 	coll := m.db.Database(m.database).Collection("healthcare_info")
-	filter := bson.D{{Key: "healthcare_id", Value: healthcareId}} // Match the BSON field name with struct tag
+	filter := bson.D{{Key: "healthcare_id", Value: healthcareId}}
 	cursor, err := coll.Find(context.TODO(), filter)
 	if err != nil {
 		return nil, fmt.Errorf("no healthcare found with given id: %s", healthcareId)
@@ -129,7 +155,6 @@ func (m *MongoStore) GetHealthcare_details(healthcareId string) (*HIPInfo, error
 		return nil, fmt.Errorf("no healthcare found with given id: %s", healthcareId)
 	}
 
-	// No manual date parsing required if MongoDB is storing it as ISODate
 	return &hipdetails[0], nil
 }
 

@@ -74,11 +74,11 @@ type Store interface {
 	SignUpAccount(*mod.HIPInfo) (int64, error)
 	LoginUser(*mod.Login) (*mod.HIPInfo, error)
 	ChangePreferance(string, map[string]interface{}) error
-	GetPreferance(int) (*mod.ChangePreferance, error)
+	GetPreferance(string) (*mod.ChangePreferance, error)
 
 	// MongoDB methods goes here...
 	GetAppointments(string, int) ([]*mod.Appointments, error)
-	CreatePatient_bioData(int, *mod.PatientDetails) (*mod.PatientDetails, error)
+	CreatePatient_bioData(string, *mod.PatientDetails) (*mod.PatientDetails, error)
 	GetPatient_bioData(string) (*mod.PatientDetails, error)
 	CreateHealthcare_details(*mod.HIPInfo) (*mod.HIPInfo, error)
 	GetHealthcare_details(string) (*mod.HIPInfo, error)
@@ -121,7 +121,9 @@ func (s *APIServer) Run() {
 
 func (s *APIServer) SignUp(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "POST" {
-		return fmt.Errorf("method is not allowed %s", r.Method)
+		return writeJSON(w, http.StatusNotAcceptable, map[string]interface{}{
+			"message": "Method Not Allowed",
+		})
 	}
 	req := mod.HIPInfo{}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -140,55 +142,78 @@ func (s *APIServer) SignUp(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	return writeJSON(w, http.StatusOK, user)
+	return writeJSON(w, http.StatusCreated, map[string]interface{}{
+		"status": "Successfully Created",
+		"Healthcare_details": map[string]interface{}{
+			"healthcare_id":      user.HealthcareID,
+			"healthcare_license": user.HealthcareLicense,
+			"name":               user.HealthcareName,
+			"email":              user.Email,
+		},
+	})
 }
 
 func (s *APIServer) LoginUser(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "POST" {
-		return fmt.Errorf("method is not allowed %s", r.Method)
+		return writeJSON(w, http.StatusNotAcceptable, map[string]interface{}{
+			"message": "Method Not Allowed",
+		})
 	}
 
 	login := &mod.Login{}
 	if err := json.NewDecoder(r.Body).Decode(&login); err != nil {
-		return err
+		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"message": "Error reading request body: " + err.Error(),
+		})
 	}
 
 	hip, err := s.store.LoginUser(login)
 	if err != nil {
-		return err
+		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"message": "No user Found!: " + err.Error(),
+		})
 	}
 
-	// Verify the password
 	if err := bcrypt.CompareHashAndPassword([]byte(hip.Password), []byte(login.Password)); err != nil {
-		return fmt.Errorf("password mismatched your id %s", hip.HealthcareLicense)
+		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"message": "password mismatched",
+		})
 	}
 
 	// create token everytime user login !!
-	tokenString, err := createJWT(login)
+	tokenString, err := createJWT(hip)
 	if err != nil {
 		return err
 	}
-	return writeJSON(w, http.StatusOK, map[string]string{"token": tokenString})
+	return writeJSON(w, http.StatusOK, map[string]interface{}{
+		"Expires":         "5d",
+		"token":           tokenString,
+		"healthcare_name": hip.HealthcareName,
+	})
 }
 
 func (s *APIServer) ChangePreferance(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "PATCH" {
-		return fmt.Errorf("%s method is not allowed", r.Method)
+		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"error": r.Method + " method not allowed",
+		})
 	}
 	req := make(map[string]interface{})
-	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(float64)
+	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(string)
 	if !ok {
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
 	}
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		return err
+		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"message": "Error reading request body: " + err.Error(),
+		})
 	}
-	healthcareID_int := int(healthcareID)
-	healthcareID_str := string(healthcareID_int)
-	err = s.store.ChangePreferance(healthcareID_str, req)
+	err = s.store.ChangePreferance(healthcareID, req)
 	if err != nil {
-		return err
+		return writeJSON(w, http.StatusGatewayTimeout, map[string]interface{}{
+			"error": err.Error(),
+		})
 	}
 	return writeJSON(w, http.StatusOK, req)
 }
@@ -198,11 +223,12 @@ func (s *APIServer) GetPreferance(w http.ResponseWriter, r *http.Request) error 
 		return fmt.Errorf("method is not allowed %s", r.Method)
 	}
 	req := &mod.ChangePreferance{}
-	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(float64)
+	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(string)
+	fmt.Println(healthcareID)
 	if !ok {
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
 	}
-	req, err := s.store.GetPreferance(int(healthcareID))
+	req, err := s.store.GetPreferance(healthcareID)
 	if err != nil {
 		return err
 	}
@@ -211,18 +237,20 @@ func (s *APIServer) GetPreferance(w http.ResponseWriter, r *http.Request) error 
 
 func (s *APIServer) DeleteAccount(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "DELETE" {
-		return fmt.Errorf("%s method is not allowed", r.Method)
+		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"error": r.Method + " method not allowed",
+		})
 	}
 	req := make(map[string]interface{})
-	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(float64)
+	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(string)
 	if !ok {
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
 	}
-	healthcareID_int := int(healthcareID)
-	healthcareID_str := string(healthcareID_int)
-	err := s.store.ChangePreferance(healthcareID_str, req)
+	err := s.store.ChangePreferance(healthcareID, req)
 	if err != nil {
-		return err
+		return writeJSON(w, http.StatusNotImplemented, map[string]interface{}{
+			"error": err.Error(),
+		})
 	}
 
 	return writeJSON(w, http.StatusOK, map[string]string{"status": "account deletion scheduled, contact to tron21vaibhav@gmail.com to remove deletion ASAP."})
@@ -234,7 +262,7 @@ func (s *APIServer) GetAppointments(w http.ResponseWriter, r *http.Request) erro
 	if r.Method != "GET" {
 		return fmt.Errorf("%s method is not allowed", r.Method)
 	}
-	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(float64)
+	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(string)
 	if !ok {
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
 	}
@@ -245,18 +273,18 @@ func (s *APIServer) GetAppointments(w http.ResponseWriter, r *http.Request) erro
 		var err error
 		list, err = strconv.Atoi(listStr)
 		if err != nil {
-			log.Fatalf("Failed to convert list to int: %v pagination %d", err, list)
+			return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+				"message": "Server error: " + err.Error(),
+			})
 		}
-		fmt.Println(list)
 	}
-	healthcareID_int := int(healthcareID)
-	healthcareID_str := string(healthcareID_int)
-	appointments, err := s.store.GetAppointments(healthcareID_str, list)
+	appointments, err := s.store.GetAppointments(healthcareID, list)
 	if err != nil {
-		log.Fatal("Error retrieving appointments:", err)
+		return writeJSON(w, http.StatusNotAcceptable, map[string]interface{}{
+			"error": "error: " + err.Error(),
+		})
 	}
 	return writeJSON(w, http.StatusOK, map[string]interface{}{
-		"message":      "fetch successful",
 		"appointments": appointments,
 		"pagination":   list,
 	})
@@ -264,28 +292,34 @@ func (s *APIServer) GetAppointments(w http.ResponseWriter, r *http.Request) erro
 
 func (s *APIServer) CreatePatient_bioData(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "POST" {
-		return fmt.Errorf("method is not allowed %s", r.Method)
+		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"error": r.Method + " method not allowed",
+		})
 	}
 	patient := &mod.PatientDetails{}
 	err := json.NewDecoder(r.Body).Decode(&patient)
 	if err != nil {
 		return err
 	}
-	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(float64)
+	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(string)
 	if !ok {
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "1HealthID not found in token"})
 	}
 
-	patientDetails, err := s.store.CreatePatient_bioData(int(healthcareID), patient)
+	patientDetails, err := s.store.CreatePatient_bioData(healthcareID, patient)
 	if err != nil {
-		return err
+		return writeJSON(w, http.StatusNotAcceptable, map[string]interface{}{
+			"message": "User Already exists",
+		})
 	}
 	return writeJSON(w, http.StatusCreated, patientDetails)
 }
 
 func (s *APIServer) GetpatientBioData(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "GET" {
-		return fmt.Errorf("method is not allowed %s", r.Method)
+		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"error": r.Method + " method not allowed",
+		})
 	}
 	query := r.URL.Query()
 
@@ -304,10 +338,11 @@ func (s *APIServer) GetpatientBioData(w http.ResponseWriter, r *http.Request) er
 
 func (s *APIServer) GetHealthcare_details(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "GET" {
-		return fmt.Errorf("%s method is not allowed", r.Method)
+		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"error": r.Method + " method not allowed",
+		})
 	}
 	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(string)
-	fmt.Println(healthcareID)
 	if !ok {
 		return writeJSON(w, http.StatusBadRequest, map[string]string{"HealthCareID": "HealthCareID not found in token"})
 	}
@@ -411,7 +446,7 @@ func (s *APIServer) UpdatePatientBioData(w http.ResponseWriter, r *http.Request)
 // ///////////////////////////// ///////////////////// ///////////////// //////////// /////////////// ////////////// /
 /////////////////////////// ///  	 Utility Functions  	///////////////////////// ////////////////// ///////////// ///////
 
-func createJWT(account *mod.Login) (string, error) {
+func createJWT(account *mod.HIPInfo) (string, error) {
 	claims := &jwt.MapClaims{
 		"expiresAt":    1500,
 		"healthcareID": account.HealthcareID,

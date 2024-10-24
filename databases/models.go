@@ -1,8 +1,6 @@
 package databases
 
 import (
-	// "github.com/go-playground/validator/v10"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,7 +17,7 @@ type Address struct {
 
 type HIPInfo struct {
 	HealthcareID      string `bson:"healthcare_id,omitempty" json:"healthcare_id"`                                  // MongoDB auto-generated ID
-	HealthcareLicense string `bson:"healthcare_license" json:"healthcare_license" validate:"required,min=4,max=20"` // Required, min 4, max 20, unique
+	HealthcareLicense string `bson:"healthcare_license" json:"healthcare_license" validate:"required,min=4,max=25"` // Required, min 4, max 20, unique
 	HealthcareName    string `bson:"name" json:"name" validate:"required,min=5,max=20"`                             // Required, min 5, max 20, unique
 	Email             string `bson:"email" json:"email" validate:"required,email"`                                  // Required, valid email, unique
 	Availability      string `bson:"availability" json:"availability" validate:"required,min=2,max=15"`             // Required, min 2, max 15
@@ -29,6 +27,7 @@ type HIPInfo struct {
 	NoOfBeds          int    `bson:"no_of_beds" json:"no_of_beds" validate:"required,min=4,max=15"`                 // Required, min 4, max 15
 	// postgres accept time.Time and
 	// mongo db accept primitive.Datetime
+	About              string    `bson:"about" json:"about" validate:"required,min=5,max=200"`
 	DateOfRegistration time.Time `bson:"date_of_registration" json:"date_of_registration"`   // Default to current time
 	Password           string    `bson:"password" json:"password" validate:"required,min=3"` // Required, min 3
 	Address            Address   `bson:"address" json:"address" validate:"required"`
@@ -65,8 +64,7 @@ func SignUpAccount(hip *HIPInfo) (*HIPInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	uniquehealthID := uuid.New().String()[:16]
-	fmt.Println(uniquehealthID)
+	uniquehealthID := uuid.New().String()[:20]
 	return &HIPInfo{
 		HealthcareID:       uniquehealthID,
 		HealthcareLicense:  uniquehealthID,
@@ -78,6 +76,7 @@ func SignUpAccount(hip *HIPInfo) (*HIPInfo, error) {
 		TotalWorker:        hip.TotalWorker,
 		NoOfBeds:           hip.NoOfBeds,
 		DateOfRegistration: hip.DateOfRegistration,
+		About:              hip.About,
 		Password:           string(encpw),
 		Address: Address{
 			Country:  hip.Address.Country,
@@ -108,7 +107,7 @@ type PatientDetails struct {
 	MiddleName      string             `bson:"middlename" json:"middlename" validate:"max=10"`
 	LastName        string             `bson:"lname" json:"lname" validate:"required,min=3,max=10"`
 	Sex             string             `bson:"sex" json:"sex" validate:"required,min=1,max=5"`
-	HealthcareID    int                `bson:"healthcare_id" json:"healthcare_id" validate:"required"`
+	HealthcareID    string             `bson:"healthcare_id" json:"healthcare_id" validate:"required"`
 	DOB             string             `bson:"dob" json:"dob" validate:"required,min=1,max=15"`
 	BloodGroup      string             `bson:"bloodgrp" json:"bloodgrp" validate:"required,min=1,max=20"`
 	BMI             string             `bson:"bmi" json:"bmi" validate:"required,min=1,max=10"`
@@ -128,7 +127,7 @@ type PatientDetails struct {
 	Address         Address            `bson:"address" json:"address"`
 }
 
-func CreatePatient_bioData(HealthcareID int, patient *PatientDetails) (*PatientDetails, error) {
+func CreatePatient_bioData(HealthcareID string, patient *PatientDetails) (*PatientDetails, error) {
 	newPatient := &PatientDetails{
 		HealthID:        patient.HealthID,
 		FirstName:       patient.FirstName,
