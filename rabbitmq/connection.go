@@ -142,7 +142,7 @@ func (c *Rabbitmq) Notification(category, name, email, healthcareId string) erro
 		return err
 	}
 
-	log.Printf(" [x] Sent %s", string(bodyBytes))
+	log.Printf("[x] Sent %s", string(bodyBytes))
 	return nil
 }
 

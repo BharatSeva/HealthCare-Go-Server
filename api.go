@@ -433,7 +433,7 @@ func (s *APIServer) GetPatientRecords(w http.ResponseWriter, r *http.Request) er
 			"message": "Could not fetch Records",
 		})
 	}
-	
+
 	// Notify user via email
 	// healthcareId, ok := r.Context().Value(contextKeyHealthCareID).(string)
 	// if !ok {
