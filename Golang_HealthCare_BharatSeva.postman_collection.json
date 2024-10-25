@@ -48,7 +48,6 @@
 						"exec": [
 							"var jsonData = pm.response.json();\r",
 							"var token = jsonData.token;\r",
-							"\r",
 							"pm.collectionVariables.set(\"HIP_TOKEN\", token);"
 						],
 						"type": "text/javascript",
@@ -172,6 +171,21 @@
 		},
 		{
 			"name": "Create Patient Bio-data",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var jsonData = pm.response.json();\r",
+							"var patient_healthID = jsonData.patient_healthID;\r",
+							"\r",
+							"pm.collectionVariables.set(\"healthID\", patient_healthID);"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
 			"request": {
 				"auth": {
 					"type": "bearer",
@@ -183,7 +197,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\r\n    \"health_id\": \"{{$randomFullName}}\",\r\n    \"fname\": \"asdfasfasdf\",\r\n    \"middlename\": \"name\",\r\n    \"lname\": \"laname\",\r\n    \"sex\": \"Male\",\r\n    \"dob\": \"DOMD\",\r\n    \"bloodgrp\": \"N/A\",\r\n    \"bmi\": \"N/A\",\r\n    \"marriage_status\": \"Single\",\r\n    \"weight\": \"N/A\",\r\n    \"email\": \"{{$randomEmail}}\",\r\n    \"mobilenumber\": \"{{$randomPhoneNumber}}\",\r\n    \"aadhar_number\": \"123\",\r\n    \"primary_location\": \"123\",\r\n    \"sibling\": \"N/A\",\r\n    \"twin\": \"No\",\r\n    \"fathername\": \"N/A\",\r\n    \"mothername\": \"N/A\",\r\n    \"emergencynumber\": \"2021071042\",\r\n    \"created_at\": \"2024-10-22T23:05:19.3651892+05:30\",\r\n    \"updated_at\": \"2024-10-22T23:05:19.3651892+05:30\",\r\n    \"address\": {\r\n        \"country\": \"11\",\r\n        \"state\": \"11\",\r\n        \"city\": \"11\",\r\n        \"landmark\": \"11\"\r\n    }\r\n}",
+					"raw": "{\r\n    \"fname\": \"{{$randomFullName}}\",\r\n    \"middlename\": \"\",\r\n    \"lname\": \"{{$randomLastName}}\",\r\n    \"sex\": \"Male\",\r\n    \"dob\": \"DOMD\",\r\n    \"bloodgrp\": \"N/A\",\r\n    \"bmi\": \"N/A\",\r\n    \"marriage_status\": \"Single\",\r\n    \"weight\": \"N/A\",\r\n    \"email\": \"{{$randomEmail}}\",\r\n    \"mobilenumber\": \"{{$randomPhoneNumber}}\",\r\n    \"aadhar_number\": \"123\",\r\n    \"primary_location\": \"123\",\r\n    \"sibling\": \"N/A\",\r\n    \"twin\": \"No\",\r\n    \"fathername\": \"N/A\",\r\n    \"mothername\": \"N/A\",\r\n    \"emergencynumber\": \"2021071042\",\r\n    \"address\": {\r\n        \"country\": \"{{$randomCountry}}\",\r\n        \"state\": \"{{$randomStreetName}}\",\r\n        \"city\": \"{{$randomCity}}\",\r\n        \"landmark\": \"{{$randomStreetAddress}}\"\r\n    }\r\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -206,7 +220,7 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "http://localhost:3000/api/v1/healthcare/getpatientbiodata?healthID=11",
+					"raw": "http://localhost:3000/api/v1/healthcare/getpatientbiodata?healthID={{healthID}}",
 					"protocol": "http",
 					"host": [
 						"localhost"
@@ -221,7 +235,7 @@
 					"query": [
 						{
 							"key": "healthID",
-							"value": "11"
+							"value": "{{healthID}}"
 						}
 					]
 				}
@@ -311,14 +325,14 @@
 				"auth": {
 					"type": "bearer",
 					"bearer": {
-						"token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHBpcmVzQXQiOjE1MDAsImhlYWx0aGNhcmVJRCI6MX0.mKr_RlECS5YpWiUPO1C4EOEyvPjHnVK51EABXbMsuAU"
+						"token": "{{HIP_TOKEN}}"
 					}
 				},
 				"method": "PATCH",
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\r\n    \"fname\": \"adfasdfasdf asdfsafsafa sdfasdf asdf sadf sdfa\",\r\n    \"middlename\": \"name\",\r\n    \"lname\": \"aaaa\",\r\n    \"sex\": \"Male\",\r\n    \"dob\": \"DOMD\",\r\n    \"bloodgrp\": \"N/A\",\r\n    \"bmi\": \"N/A\"\r\n}",
+					"raw": "{\r\n    \"fname\": \"Changed Name\",\r\n    \"dob\": \"20/09/2001\",\r\n    \"bmi\": \"13\"\r\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -326,7 +340,7 @@
 					}
 				},
 				"url": {
-					"raw": "http://localhost:3000/api/v1/healthcare/updatepatientbiodata?healthID=11",
+					"raw": "http://localhost:3000/api/v1/healthcare/updatepatientbiodata?healthID={{healthID}}",
 					"protocol": "http",
 					"host": [
 						"localhost"
@@ -341,7 +355,7 @@
 					"query": [
 						{
 							"key": "healthID",
-							"value": "11"
+							"value": "{{healthID}}"
 						}
 					]
 				}
@@ -356,6 +370,10 @@
 		},
 		{
 			"key": "H_ID",
+			"value": ""
+		},
+		{
+			"key": "healthID",
 			"value": ""
 		}
 	]
