@@ -66,7 +66,7 @@ func SignUpAccount(hip *HIPInfo) (*HIPInfo, error) {
 	}
 	uniquehealthID := uuid.New().String()[:20]
 	return &HIPInfo{
-		HealthcareID:       uniquehealthID,
+		HealthcareID:       "HCID" + uniquehealthID,
 		HealthcareLicense:  uniquehealthID,
 		HealthcareName:     hip.HealthcareName,
 		Email:              hip.Email,
@@ -101,7 +101,7 @@ type Appointments struct {
 }
 
 type PatientDetails struct {
-	ID              primitive.ObjectID `bson:"_id,omitempty" json:"_id"`
+	ID              primitive.ObjectID `bson:"_id,omitempty" json:"-"`
 	HealthID        string             `bson:"health_id" json:"health_id" validate:"required,min=10,max=10"`
 	FirstName       string             `bson:"fname" json:"fname" validate:"required,min=3,max=10"`
 	MiddleName      string             `bson:"middlename" json:"middlename" validate:"max=10"`
@@ -128,8 +128,9 @@ type PatientDetails struct {
 }
 
 func CreatePatient_bioData(HealthcareID string, patient *PatientDetails) (*PatientDetails, error) {
+	uniquehealthID := uuid.New().String()[:20]
 	newPatient := &PatientDetails{
-		HealthID:        patient.HealthID,
+		HealthID:        "HID" + uniquehealthID,
 		FirstName:       patient.FirstName,
 		MiddleName:      patient.MiddleName,
 		LastName:        patient.LastName,
@@ -163,7 +164,7 @@ func CreatePatient_bioData(HealthcareID string, patient *PatientDetails) (*Patie
 }
 
 type PatientRecords struct {
-	ID              primitive.ObjectID `bson:"_id,omitempty" json:"id"`                             // MongoDB ID field
+	ID              primitive.ObjectID `bson:"_id,omitempty" json:"-"`                              // MongoDB ID field
 	Issue           string             `bson:"issue" json:"issue" validate:"required,min=3,max=20"` // Required, min 3, max 20 characters
 	Createdby_      string             `bson:"Createdby_" json:"Createdby_" validate:"required"`
 	Description     string             `bson:"description" json:"description" validate:"required,min=3,max=50"` // Required, min 3, max 50 characters

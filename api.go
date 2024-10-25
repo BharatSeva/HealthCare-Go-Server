@@ -7,12 +7,14 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
+
+	mod "vaibhavyadav-dev/healthcareServer/databases"
 
 	_ "github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
-	mod "vaibhavyadav-dev/healthcareServer/databases"
 )
 
 type contextKey string
@@ -87,9 +89,10 @@ type Store interface {
 	UpdatePatientBioData(string, map[string]interface{}) (*mod.PatientDetails, error)
 
 	// rabbitmq methods goes here...
-	Notification(string, string, string, string) error
-	Appointment(category string) error
-	Patient_records(category string) error
+	Push_SendNotification(interface{}, interface{}, interface{}, interface{}) error
+	Push_appointment(category string) error
+	Push_patient_records(map[string]interface{}) error
+	Push_patientbiodata(map[string]interface{}) error
 }
 
 type APIServer struct {
@@ -149,7 +152,7 @@ func (s *APIServer) SignUp(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// send Email to healthcare that his account has been created now
-	s.store.Notification("account_created", user.HealthcareName, user.Email, user.HealthcareID)
+	s.store.Push_SendNotification("account_created", user.HealthcareName, user.Email, user.HealthcareID)
 
 	return writeJSON(w, http.StatusCreated, map[string]interface{}{
 		"status": "Successfully Created",
@@ -195,11 +198,12 @@ func (s *APIServer) LoginUser(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	// notify user everytime user login !
-	s.store.Notification("account_login", hip.HealthcareName, hip.Email, hip.HealthcareID)
+	s.store.Push_SendNotification("account_login", hip.HealthcareName, hip.Email, hip.HealthcareID)
 
 	return writeJSON(w, http.StatusOK, map[string]interface{}{
-		"Expires":         "5d",
+		"Expires In":         "5d",
 		"token":           tokenString,
+		"healthcare_id":   hip.HealthcareID,
 		"healthcare_name": hip.HealthcareName,
 	})
 }
@@ -266,7 +270,7 @@ func (s *APIServer) DeleteAccount(w http.ResponseWriter, r *http.Request) error 
 	}
 
 	// send email to user
-	// s.store.Notification("delete_account", )
+	s.store.Push_SendNotification("delete_account", nil, nil, healthcareID)
 
 	return writeJSON(w, http.StatusOK, map[string]string{"status": "account deletion scheduled, contact to tron21vaibhav@gmail.com to remove deletion ASAP."})
 }
@@ -318,20 +322,43 @@ func (s *APIServer) CreatePatient_bioData(w http.ResponseWriter, r *http.Request
 	}
 	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(string)
 	if !ok {
-		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "1HealthID not found in token"})
+		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
+	}
+	patientDetails, err := mod.CreatePatient_bioData(healthcareID, patient)
+	if err != nil {
+		return err
 	}
 
-	patientDetails, err := s.store.CreatePatient_bioData(healthcareID, patient)
+	patientDetails, err = s.store.CreatePatient_bioData(healthcareID, patientDetails)
 	if err != nil {
 		return writeJSON(w, http.StatusNotAcceptable, map[string]interface{}{
 			"message": "User Already exists",
 		})
 	}
 
-	// Notify user via email
-	s.store.Notification("patient_biodata_created", patientDetails.FirstName, patientDetails.Email, patientDetails.HealthcareID)
+	// Push this into rabbitmq instead of directly into database (mongodDB)
+	// Push into rabbitmq
+	// body := map[string]interface{}{
+	// 	"biodata": patientDetails,
+	// }
+	// err = s.store.Push_patientbiodata(body)
+	// if err != nil {
+	// 	return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+	// 		"message": "Something Mishappened (Please Mail 21vaibhav11@gmail.com for this issue)",
+	// 		"status":  "Server Could not Process your Request",
+	// 		"err":     err.Error(),
+	// 	})
+	// }
 
-	return writeJSON(w, http.StatusCreated, patientDetails)
+	// Notify user via email
+	s.store.Push_SendNotification("patient_biodata_created", patientDetails.FirstName, patientDetails.Email, patientDetails.HealthcareID)
+
+	return writeJSON(w, http.StatusCreated, map[string]interface{}{
+		"message":          "data has been successfully created!",
+		"status":           "created",
+		"patient_healthID": patientDetails.HealthID,
+		"Full name":        patientDetails.FirstName + " " + patientDetails.MiddleName + " " + patientDetails.LastName,
+	})
 }
 
 func (s *APIServer) GetpatientBioData(w http.ResponseWriter, r *http.Request) error {
@@ -353,7 +380,7 @@ func (s *APIServer) GetpatientBioData(w http.ResponseWriter, r *http.Request) er
 		return err
 	}
 	// Notify user via email
-	s.store.Notification("patient_biodata_viewed", patientDetails.FirstName, patientDetails.Email, patientDetails.HealthcareID)
+	s.store.Push_SendNotification("patient_biodata_viewed", patientDetails.FirstName, patientDetails.Email, patientDetails.HealthcareID)
 
 	return writeJSON(w, http.StatusOK, patientDetails)
 }
@@ -393,16 +420,37 @@ func (s *APIServer) CreatepatientRecords(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"message": "StatusUnauthorized"})
 	}
-	patientrecords_created, err := s.store.CreatepatientRecords(healthcareId, patientrecords)
+
+	// Leave this for now
+
+	// patientrecords_created, err := s.store.CreatepatientRecords(healthcareId, patientrecords)
+	// if err != nil {
+	// 	return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+	// 		"message": err,
+	// 	})
+	// }
+
+	// Convert into body format
+	body := map[string]interface{}{
+		"record": patientrecords,
+	}
+	// Push it intoRabbitMq
+	err = s.store.Push_patient_records(body)
 	if err != nil {
-		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
-			"message": err,
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"message": "Something Mishappened (Please Mail 21vaibhav11@gmail.com for this issue)",
+			"status":  "Server Could not Process your Request",
+			"err":     err.Error(),
 		})
 	}
+
 	// Notify user via email
 	// s.store.Notification("patient_biodata_viewed", patientrecords_created, patientDetails.Email, patientDetails.HealthcareID)
 
-	return writeJSON(w, http.StatusCreated, patientrecords_created)
+	return writeJSON(w, http.StatusCreated, map[string]interface{}{
+		"message": "successfully Created",
+		"status":  "pending " + healthcareId,
+	})
 }
 
 func (s *APIServer) GetPatientRecords(w http.ResponseWriter, r *http.Request) error {
@@ -435,12 +483,12 @@ func (s *APIServer) GetPatientRecords(w http.ResponseWriter, r *http.Request) er
 	}
 
 	// Notify user via email
-	// healthcareId, ok := r.Context().Value(contextKeyHealthCareID).(string)
-	// if !ok {
-	// 	return writeJSON(w, http.StatusUnauthorized, map[string]string{"message": "StatusUnauthorized"})
-	// }
+	healthcareId, ok := r.Context().Value(contextKeyHealthCareID).(string)
+	if !ok {
+		return writeJSON(w, http.StatusUnauthorized, map[string]string{"message": "StatusUnauthorized"})
+	}
 
-	// s.store.Notification("patient_biodata_viewed", patientrecords_created, patientDetails.Email, healthcareId)
+	s.store.Push_SendNotification("patient_record_viewed", nil, nil, healthcareId)
 
 	return writeJSON(w, http.StatusOK, map[string]interface{}{
 		"message":         "successfull",
@@ -453,6 +501,10 @@ func (s *APIServer) UpdatePatientBioData(w http.ResponseWriter, r *http.Request)
 	if r.Method != "PATCH" {
 		return fmt.Errorf("method not allowed %s", r.Method)
 	}
+	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(string)
+	if !ok {
+		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
+	}
 	healthID := r.URL.Query().Get("healthID")
 	if healthID == "" {
 		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
@@ -464,7 +516,7 @@ func (s *APIServer) UpdatePatientBioData(w http.ResponseWriter, r *http.Request)
 	err := json.NewDecoder(r.Body).Decode(&updates)
 	if err != nil {
 		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
-			"message": "Internal Server Error: could not get data",
+			"message": "Internal Server Error: could not process data",
 		})
 	}
 
@@ -474,6 +526,9 @@ func (s *APIServer) UpdatePatientBioData(w http.ResponseWriter, r *http.Request)
 			"message": "No Chage Detected or No Patient Found",
 		})
 	}
+	// Get HealthCareId and update the patient
+	s.store.Push_SendNotification("patient_biodata_updated", updatedPatient.FirstName, updatedPatient.Email, healthcareID)
+
 	return writeJSON(w, http.StatusAccepted, updatedPatient)
 }
 
@@ -481,8 +536,8 @@ func (s *APIServer) UpdatePatientBioData(w http.ResponseWriter, r *http.Request)
 /////////////////////////// ///  	 Utility Functions  	///////////////////////// ////////////////// ///////////// ///////
 
 func createJWT(account *mod.HIPInfo) (string, error) {
-	claims := &jwt.MapClaims{
-		"expiresAt":    1500,
+	claims := jwt.MapClaims{
+		"expiresAt":    time.Now().Add(5 * 24 * time.Hour).Unix(), //setting it to 5days from now
 		"healthcareID": account.HealthcareID,
 	}
 	signKey := "PASSWORD"
@@ -510,8 +565,14 @@ func withJWTAuth(handlerFunc http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-			healthID, _ := claims["healthcareID"].(string)
-			ctx := context.WithValue(r.Context(), contextKeyHealthCareID, healthID)
+			healthcareID, _ := claims["healthcareID"].(string)
+			// block the request if token tempered
+			if healthcareID == "" {
+				writeJSON(w, http.StatusForbidden, apiError{Error: "Invalid Token"})
+				return
+			}
+
+			ctx := context.WithValue(r.Context(), contextKeyHealthCareID, healthcareID)
 			handlerFunc(w, r.WithContext(ctx))
 		} else {
 			writeJSON(w, http.StatusForbidden, apiError{Error: "Invalid token claims"})

@@ -93,12 +93,17 @@ func (s *CombinedStore) CreateHealthcare_details(healthcare_info *HIPInfo) (*HIP
 }
 
 // rabbitmq implementation goes here
-func (s *CombinedStore) Notification(category, name, email, id string) error {
-	return s.rabbitmq.Notification(category, name, email, id)
+func (s *CombinedStore) Push_SendNotification(category, name, email, id interface{}) error {
+	return s.rabbitmq.Push_SendNotification(category, name, email, id)
 }
-func (s *CombinedStore) Appointment(category string) error {
-	return s.rabbitmq.Appointment(category)
+func (s *CombinedStore) Push_appointment(category string) error {
+	return s.rabbitmq.Push_appointment(category)
 }
-func (s *CombinedStore) Patient_records(category string) error {
-	return s.rabbitmq.Patient_records(category)
+
+func (s *CombinedStore) Push_patient_records(record map[string]interface{}) error {
+	return s.rabbitmq.Push_patient_records(record)
+}
+
+func (s *CombinedStore) Push_patientbiodata(biodata map[string]interface{}) error {
+	return s.rabbitmq.Push_patientbiodata(biodata)
 }

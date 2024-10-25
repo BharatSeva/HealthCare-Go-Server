@@ -16,11 +16,6 @@ type MongoStore struct {
 	collection []string
 }
 
-type Server_message struct {
-	Message string `json:"message"`
-	Status  string `json:"status"`
-}
-
 func Seed_createUniquepatient(collection *mongo.Collection) error {
 	index := mongo.IndexModel{
 		Keys:    bson.D{{Key: "health_id", Value: 1}, {Key: "mobilenumber", Value: 1}, {Key: "email", Value: 1}},
@@ -64,8 +59,10 @@ func ConnectToMongoDB(url, database string, collection []string) (*MongoStore, e
 
 func (m *MongoStore) Init() error {
 	coll := m.db.Database(m.database).Collection("patient_details")
-	err :=  Seed_createUniquepatient(coll)
-	if err != nil { return err }
+	err := Seed_createUniquepatient(coll)
+	if err != nil {
+		return err
+	}
 
 	coll = m.db.Database(m.database).Collection("healthcare_info")
 	return Seed_createUniqueHealthInfo(coll)
@@ -89,21 +86,16 @@ func (m *MongoStore) GetAppointments(healthcareID string, list int) ([]*Appointm
 	return appointments, nil
 }
 
-func (m *MongoStore) CreatePatient_bioData(healthcareID string, patient *PatientDetails) (*PatientDetails, error) {
-	patientDetails, err := CreatePatient_bioData(healthcareID, patient)
-	if err != nil {
-		return nil, err
-	}
+func (m *MongoStore) CreatePatient_bioData(healthcareID string, patientDetails *PatientDetails) (*PatientDetails, error) {
 	patientDetails.ID = primitive.NewObjectID()
 	coll := m.db.Database(m.database).Collection("patient_details")
-	_, err = coll.InsertOne(context.TODO(), patientDetails)
+	_, err := coll.InsertOne(context.TODO(), patientDetails)
 	if err != nil {
 		if mongo.IsDuplicateKeyError(err) {
 			return nil, fmt.Errorf("mobilenumber or healthid or email already exists")
 		}
 		return nil, fmt.Errorf("failed to insert patient details: %v", err)
 	}
-
 	return patientDetails, nil
 }
 
@@ -197,19 +189,26 @@ func (m *MongoStore) UpdatePatientBioData(healthID string, updates map[string]in
 
 	cleanedUpdates := map[string]interface{}{}
 	for key, value := range updates {
-		if value != "" && value != "N/A" {
+		if value != "" && value != "N/A" && value != "healthcare_id" && value != "health_id" {
 			cleanedUpdates[key] = value
 		}
 	}
+	
 
 	if len(cleanedUpdates) == 0 {
 		return nil, fmt.Errorf("no valid fields to update")
 	}
 
 	filter := bson.D{{Key: "health_id", Value: healthID}}
-	update := bson.D{{Key: "$set", Value: cleanedUpdates}}
+	// Update the updated_at time also
+	// This will always update the data, so provide authentic validation as possible
+	update := bson.D{
+		{Key: "$set", Value: cleanedUpdates},
+		{Key: "$currentDate", Value: bson.D{
+			{Key: "updated_at", Value: true},
+		}},
+	}
 
-	// Execute the update operation
 	result, err := coll.UpdateOne(context.Background(), filter, update)
 	if err != nil {
 		return nil, err

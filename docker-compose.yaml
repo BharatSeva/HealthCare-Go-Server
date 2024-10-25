@@ -11,6 +11,7 @@ services:
     depends_on:
       - mongodb
       - postgres
+      - rabbitmq
 
   mongodb:
     image: mongo:latest

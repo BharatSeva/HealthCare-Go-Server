@@ -13,7 +13,7 @@ func main() {
 	// This will handle all the asynchronous task like notification, patient_records, and
 	// appointments
 
-	// One thing that I'm deeply interested and passionate about is MACHINE LEARNING
+	// One thing that I'm deeply interested and passionate about --> MACHINE LEARNING
 	// ONE STEP CLOSER TO IT
 
 	err := godotenv.Load()
