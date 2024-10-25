@@ -40,6 +40,7 @@ MONGOURL=mongodb://rootuser:rootuser@mongodb:27017
 POSTGRES=postgres://rootuser:rootuser@postgres:5432/postgres?sslmode=disable
 PORT=:3000
 KEY=VAIBHAVYADAV
+RABBITMQ=amqp://rootuser:rootuser@rabbitmq:5672/
 ```
 
 

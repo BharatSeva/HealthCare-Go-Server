@@ -2,42 +2,53 @@ package databases
 
 import (
 	"fmt"
-	"log"
+	"time"
 	mq "vaibhavyadav-dev/healthcareServer/rabbitmq"
+	rd "vaibhavyadav-dev/healthcareServer/redis"
 )
 
 type CombinedStore struct {
-	postgres *PostgresStore
-	mongodb  *MongoStore
-	rabbitmq *mq.Rabbitmq
+	postgres  *PostgresStore
+	mongodb   *MongoStore
+	rabbitmq  *mq.Rabbitmq
+	redisconn *rd.Redisconn
 }
 
-func NewCombinedStore(rabbitMqURL, postgresConn, mongoURI string, dbName string, collection []string) (*CombinedStore, error) {
+// redis will contain url, limit -> no request allowed in window time
+func Combinedstore(redisURL string, limit int, window time.Duration, rabbitMqURL, postgresConn, mongoURI string, dbName string, collection []string) (*CombinedStore, error) {
 	postgres, err := ConnectToPostgreSQL(postgresConn)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize postgres: %w", err)
+		return nil, fmt.Errorf("failed to initialize postgres: %s", err.Error())
 	}
 	if err := postgres.Init(); err != nil {
-		return nil, fmt.Errorf("failed to init postgres: %w", err)
+		return nil, fmt.Errorf("failed to init postgres: %s", err.Error())
 	}
 
 	mongodb, err := ConnectToMongoDB(mongoURI, dbName, collection)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize mongodb: %w", err)
+		return nil, fmt.Errorf("failed to initialize mongodb: %s", err.Error())
 	}
 	if err := mongodb.Init(); err != nil {
-		return nil, fmt.Errorf("failed to init mongodb: %w", err)
+		return nil, fmt.Errorf("failed to init mongodb: %s", err.Error())
 	}
 
-	conn, err := mq.Connect2rabbitmq(rabbitMqURL)
+	// this one for rabbitmq
+	rabbitmqconn, err := mq.Connect2rabbitmq(rabbitMqURL)
 	if err != nil {
-		log.Fatal("could not connect to server ", err.Error())
+		return nil, fmt.Errorf("failed to init postgres: %s", err.Error())
+	}
+
+	// this one for redis
+	redisconn, err := rd.Connect2Redis(redisURL, limit, window)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init postgres: %s", err.Error())
 	}
 
 	return &CombinedStore{
-		postgres: postgres,
-		mongodb:  mongodb,
-		rabbitmq: conn,
+		postgres:  postgres,
+		mongodb:   mongodb,
+		rabbitmq:  rabbitmqconn,
+		redisconn: redisconn,
 	}, nil
 }
 
@@ -106,4 +117,24 @@ func (s *CombinedStore) Push_patient_records(record map[string]interface{}) erro
 
 func (s *CombinedStore) Push_patientbiodata(biodata map[string]interface{}) error {
 	return s.rabbitmq.Push_patientbiodata(biodata)
+}
+
+// Redis implementation
+func (s *CombinedStore) Set(key string, value interface{}) error {
+	return s.redisconn.Set(key, value)
+}
+
+func (s *CombinedStore) Get(key string) (interface{}, error) {
+	return s.redisconn.Get(key)
+}
+
+//	RATE LIMITER GOES HERE...
+//
+// this one is for rate limiting (rate limiter)
+func (s *CombinedStore) IsAllowed(healthcare_id string) (bool, error) {
+	return s.redisconn.IsAllowed(healthcare_id)
+}
+
+func (s *CombinedStore) Close() error {
+	return s.redisconn.Close()
 }

@@ -12,6 +12,7 @@ import (
 	mod "vaibhavyadav-dev/healthcareServer/databases"
 
 	_ "github.com/go-playground/validator/v10"
+	"github.com/go-redis/redis/v8"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
@@ -93,6 +94,14 @@ type Store interface {
 	Push_appointment(category string) error
 	Push_patient_records(map[string]interface{}) error
 	Push_patientbiodata(map[string]interface{}) error
+
+	// redis implementation Goes here
+	Set(string, interface{}) error
+	Get(string) (interface{}, error)
+	Close() error
+
+	// rate limiter goes here...
+	IsAllowed(string) (bool, error)
 }
 
 type APIServer struct {
@@ -111,10 +120,14 @@ func (s *APIServer) Run() {
 	router := mux.NewRouter()
 	router.HandleFunc("/api/v1/healthcareauth/register", (makeHTTPHandlerFunc(s.SignUp)))
 	router.HandleFunc("/api/v1/healthcareauth/login", (makeHTTPHandlerFunc(s.LoginUser)))
+
+	// this one will serve from postgres
+	router.HandleFunc("/api/v1/healthcare/getpreferance", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.GetPreferance))))
+
 	router.HandleFunc("/api/v1/healthcare/changepreferance", withJWTAuth(makeHTTPHandlerFunc(s.ChangePreferance)))
-	router.HandleFunc("/api/v1/healthcare/getpreferance", withJWTAuth(makeHTTPHandlerFunc(s.GetPreferance)))
 	router.HandleFunc("/api/v1/healthcare/deleteaccount", withJWTAuth(makeHTTPHandlerFunc(s.DeleteAccount)))
 
+	// this is will server from mongodb
 	router.HandleFunc("/api/v1/healthcare/getappointments", withJWTAuth(makeHTTPHandlerFunc(s.GetAppointments)))
 	router.HandleFunc("/api/v1/healthcare/createpatientbiodata", withJWTAuth(makeHTTPHandlerFunc(s.CreatePatient_bioData)))
 	router.HandleFunc("/api/v1/healthcare/getpatientbiodata", withJWTAuth(makeHTTPHandlerFunc(s.GetpatientBioData)))
@@ -201,7 +214,7 @@ func (s *APIServer) LoginUser(w http.ResponseWriter, r *http.Request) error {
 	s.store.Push_SendNotification("account_login", hip.HealthcareName, hip.Email, hip.HealthcareID)
 
 	return writeJSON(w, http.StatusOK, map[string]interface{}{
-		"Expires In":         "5d",
+		"Expires In":      "5d",
 		"token":           tokenString,
 		"healthcare_id":   hip.HealthcareID,
 		"healthcare_name": hip.HealthcareName,
@@ -236,19 +249,67 @@ func (s *APIServer) ChangePreferance(w http.ResponseWriter, r *http.Request) err
 
 func (s *APIServer) GetPreferance(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "GET" {
-		return fmt.Errorf("method is not allowed %s", r.Method)
+		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"error": r.Method + " method not allowed",
+		})
 	}
 	req := &mod.ChangePreferance{}
 	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(string)
-	fmt.Println(healthcareID)
 	if !ok {
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
 	}
-	req, err := s.store.GetPreferance(healthcareID)
-	if err != nil {
-		return err
+
+	// Fetch from redis server first
+	fetched, err := s.store.Get("hip:pref:" + healthcareID)
+	if err != redis.Nil {
+		if err != nil {
+			return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+		if fetched != nil {
+			fetchedStr, ok := fetched.(string)
+			if !ok {
+				return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+					"error": "Failed to convert data to string",
+				})
+			}
+			var jsonBody *mod.ChangePreferance
+			err = json.Unmarshal([]byte(fetchedStr), &jsonBody)
+			if err != nil {
+				return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+					"error": "Failed to parse the data",
+				})
+			}
+			return writeJSON(w, http.StatusOK, map[string]interface{}{
+				"status":     "cache hit",
+				"preferance": jsonBody,
+			})
+		}
 	}
-	return writeJSON(w, http.StatusOK, req)
+
+	// fetch from database
+	req, err = s.store.GetPreferance(healthcareID)
+	if err != nil {
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"message": "Something mishappened from our side :)",
+			"error":   err.Error(),
+		})
+	}
+
+	// Store into redis
+	err = s.store.Set("hip:pref:"+healthcareID, req)
+	if err != nil {
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"message": "Something mishappened from our side :)",
+			"error":   err.Error(),
+		})
+	}
+
+	return writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status":     "cache miss",
+		"preferance": req,
+	})
 }
 
 func (s *APIServer) DeleteAccount(w http.ResponseWriter, r *http.Request) error {
@@ -395,6 +456,35 @@ func (s *APIServer) GetHealthcare_details(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return writeJSON(w, http.StatusBadRequest, map[string]string{"HealthCareID": "HealthCareID not found in token"})
 	}
+
+	// Fetch from redis server first
+	fetched, err := s.store.Get("hip:details:" + healthcareID)
+	if err != redis.Nil {
+		if err != nil {
+			return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+		if fetched != nil {
+			fetchedStr, ok := fetched.(string)
+			if !ok {
+				return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+					"error": "Failed to convert data to string",
+				})
+			}
+			var jsonBody *mod.HIPInfo
+			err = json.Unmarshal([]byte(fetchedStr), &jsonBody)
+			if err != nil {
+				return err
+			}
+			return writeJSON(w, http.StatusOK, map[string]interface{}{
+				"status":     "cache hit",
+				"preferance": jsonBody,
+			})
+		}
+	}
+
+	// fetch from database now!!
 	hipdetails, err := s.store.GetHealthcare_details(healthcareID)
 	if err != nil {
 		return writeJSON(w, http.StatusNotFound, map[string]interface{}{
@@ -402,7 +492,20 @@ func (s *APIServer) GetHealthcare_details(w http.ResponseWriter, r *http.Request
 			"healthcare": hipdetails,
 		})
 	}
-	return writeJSON(w, http.StatusOK, hipdetails)
+
+	// Store into redis!!!
+	err = s.store.Set("hip:details:"+healthcareID, hipdetails)
+	if err != nil {
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"message": "Something mishappened from our side :)",
+			"error":   err.Error(),
+		})
+	}
+
+	return writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status":     "cache miss",
+		"healthcare": hipdetails,
+	})
 }
 
 func (s *APIServer) CreatepatientRecords(w http.ResponseWriter, r *http.Request) error {
@@ -535,6 +638,31 @@ func (s *APIServer) UpdatePatientBioData(w http.ResponseWriter, r *http.Request)
 // ///////////////////////////// ///////////////////// ///////////////// //////////// /////////////// ////////////// /
 /////////////////////////// ///  	 Utility Functions  	///////////////////////// ////////////////// ///////////// ///////
 
+// rate limiter goes here...
+func (s *APIServer) RateLimiter(handlerFunc http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(string)
+		if !ok {
+			http.Error(w, "Invalid Request", http.StatusTooManyRequests)
+			return
+		}
+
+		// testing
+		fmt.Println("helllo")
+
+		allowed, err := s.store.IsAllowed(healthcareID)
+		if err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		if !allowed {
+			http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
+			return
+		}
+		handlerFunc(w, r)
+	}
+}
+
 func createJWT(account *mod.HIPInfo) (string, error) {
 	claims := jwt.MapClaims{
 		"expiresAt":    time.Now().Add(5 * 24 * time.Hour).Unix(), //setting it to 5days from now
@@ -564,6 +692,7 @@ func withJWTAuth(handlerFunc http.HandlerFunc) http.HandlerFunc {
 			writeJSON(w, http.StatusForbidden, apiError{Error: "Invalid token"})
 			return
 		}
+
 		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 			healthcareID, _ := claims["healthcareID"].(string)
 			// block the request if token tempered
@@ -571,6 +700,8 @@ func withJWTAuth(handlerFunc http.HandlerFunc) http.HandlerFunc {
 				writeJSON(w, http.StatusForbidden, apiError{Error: "Invalid Token"})
 				return
 			}
+
+			// validate ratelimiter
 
 			ctx := context.WithValue(r.Context(), contextKeyHealthCareID, healthcareID)
 			handlerFunc(w, r.WithContext(ctx))

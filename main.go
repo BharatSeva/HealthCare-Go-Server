@@ -1,11 +1,13 @@
 package main
 
 import (
-	"github.com/joho/godotenv"
-	_ "github.com/lib/pq"
 	"log"
 	"os"
+	"time"
 	db "vaibhavyadav-dev/healthcareServer/databases"
+
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 )
 
 func main() {
@@ -20,11 +22,16 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error loading .env file")
 	}
+	redisURL := os.Getenv("REDIS")
 	rabbitMqURL := os.Getenv("RABBITMQ")
 	psqlInfo := os.Getenv("POSTGRES")
 	mongoURI := os.Getenv("MONGOURL")
 
-	store, err := db.NewCombinedStore(rabbitMqURL, psqlInfo, mongoURI, "db", []string{"golang1", "golang2", "golang3", "golang4"})
+	// first one is redis url, second one is limit, and third one is time.Second
+	// limit -> 10
+	// window -> per 5 second
+	// 							  redisurl limit timesecond
+	store, err := db.Combinedstore(redisURL, 10, 5*time.Second, rabbitMqURL, psqlInfo, mongoURI, "db", []string{"golang1", "golang2", "golang3", "golang4"})
 	if err != nil {
 		log.Fatal("Failed to initialize store:", err)
 	}
