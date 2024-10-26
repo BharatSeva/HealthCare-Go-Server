@@ -37,7 +37,44 @@
 				},
 				"url": "http://localhost:3000/api/v1/healthcareauth/register"
 			},
-			"response": []
+			"response": [
+				{
+					"name": "Register",
+					"originalRequest": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"name\": \"{{$randomFullName}} Hospital\",\r\n    \"availability\": \"Yes\",\r\n    \"total_facilities\": 200,\r\n    \"total_mbbs_doc\": 58,\r\n    \"total_worker\": 400,\r\n    \"no_of_beds\": 200,\r\n    \"email\": \"{{$randomEmail}}\",\r\n    \"appointment_fee\": 300,\r\n    \"about\": \"{{$randomJobDescriptor}}\",\r\n    \"password\": \"11\",\r\n    \"address\": {\r\n        \"country\": \"{{$randomCountry}}\",\r\n        \"landmark\": \"{{$randomStreetName}}\",\r\n        \"city\": \"{{$randomCity}}\",\r\n        \"state\": \"{{$randomCity}}\"\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": "http://localhost:3000/api/v1/healthcareauth/register"
+					},
+					"status": "Created",
+					"code": 201,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						},
+						{
+							"key": "Date",
+							"value": "Sat, 26 Oct 2024 14:41:18 GMT"
+						},
+						{
+							"key": "Content-Length",
+							"value": "217"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"Healthcare_details\": {\n        \"email\": \"Camylle.Reichel@yahoo.com\",\n        \"healthcare_id\": \"HCID04bd4df0-060d-43d1-a\",\n        \"healthcare_license\": \"04bd4df0-060d-43d1-a\",\n        \"name\": \"Christina Medhurst Hospital\"\n    },\n    \"status\": \"Successfully Created\"\n}"
+				}
+			]
 		},
 		{
 			"name": "Login",
@@ -79,7 +116,44 @@
 				},
 				"url": "http://localhost:3000/api/v1/healthcareauth/login"
 			},
-			"response": []
+			"response": [
+				{
+					"name": "Login",
+					"originalRequest": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"healthcare_id\": \"{{H_ID}}\",\r\n    \"healthcare_license\": \"{{H_ID}}\",\r\n    \"password\": \"11\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": "http://localhost:3000/api/v1/healthcareauth/login"
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						},
+						{
+							"key": "Date",
+							"value": "Sat, 26 Oct 2024 14:41:35 GMT"
+						},
+						{
+							"key": "Content-Length",
+							"value": "291"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"Expires In\": \"5d\",\n    \"healthcare_id\": \"HCID04bd4df0-060d-43d1-a\",\n    \"healthcare_name\": \"Christina Medhurst Hospital\",\n    \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHBpcmVzQXQiOjE3MzAzODU2OTUsImhlYWx0aGNhcmVJRCI6IkhDSUQwNGJkNGRmMC0wNjBkLTQzZDEtYSJ9.tH_J6FZ39Iz-ExHJrSB8im3OxpLvz-sufzfXXDiSFl4\"\n}"
+				}
+			]
 		},
 		{
 			"name": "Change Preferance",
@@ -103,7 +177,44 @@
 				},
 				"url": "http://localhost:3000/api/v1/healthcare/changepreferance"
 			},
-			"response": []
+			"response": [
+				{
+					"name": "Change Preferance",
+					"originalRequest": {
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"email\": \"{{$randomEmail}}\",\r\n    \"isAvailable\": true,\r\n    \"scheduled_deletion\": false\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": "http://localhost:3000/api/v1/healthcare/changepreferance"
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						},
+						{
+							"key": "Date",
+							"value": "Sat, 26 Oct 2024 14:41:47 GMT"
+						},
+						{
+							"key": "Content-Length",
+							"value": "88"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"email\": \"Roselyn.Marquardt79@yahoo.com\",\n    \"isAvailable\": true,\n    \"scheduled_deletion\": false\n}"
+				}
+			]
 		},
 		{
 			"name": "Get Preferance",
@@ -245,7 +356,54 @@
 					]
 				}
 			},
-			"response": []
+			"response": [
+				{
+					"name": "Get Appointments",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:3000/api/v1/healthcare/getappointments?list=2",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"v1",
+								"healthcare",
+								"getappointments"
+							],
+							"query": [
+								{
+									"key": "list",
+									"value": "2"
+								}
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						},
+						{
+							"key": "Date",
+							"value": "Sat, 26 Oct 2024 14:41:58 GMT"
+						},
+						{
+							"key": "Content-Length",
+							"value": "37"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"appointments\": null,\n    \"pagination\": 2\n}"
+				}
+			]
 		},
 		{
 			"name": "Delete Account",
@@ -260,7 +418,35 @@
 				"header": [],
 				"url": "http://localhost:3000/api/v1/healthcare/deleteaccount"
 			},
-			"response": []
+			"response": [
+				{
+					"name": "Delete Account",
+					"originalRequest": {
+						"method": "DELETE",
+						"header": [],
+						"url": "http://localhost:3000/api/v1/healthcare/deleteaccount"
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						},
+						{
+							"key": "Date",
+							"value": "Sat, 26 Oct 2024 14:42:06 GMT"
+						},
+						{
+							"key": "Content-Length",
+							"value": "101"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"status\": \"account deletion scheduled, contact to tron21vaibhav@gmail.com to remove deletion ASAP.\"\n}"
+				}
+			]
 		},
 		{
 			"name": "Create Patient Bio-data",
@@ -299,7 +485,44 @@
 				},
 				"url": "http://localhost:3000/api/v1/healthcare/createpatientbiodata"
 			},
-			"response": []
+			"response": [
+				{
+					"name": "Create Patient Bio-data",
+					"originalRequest": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"fname\": \"{{$randomFullName}}\",\r\n    \"middlename\": \"Kumar\",\r\n    \"lname\": \"{{$randomLastName}}\",\r\n    \"sex\": \"Male\",\r\n    \"dob\": \"DOMD\",\r\n    \"bloodgrp\": \"N/A\",\r\n    \"bmi\": \"N/A\",\r\n    \"marriage_status\": \"Single\",\r\n    \"weight\": \"N/A\",\r\n    \"email\": \"{{$randomEmail}}\",\r\n    \"mobilenumber\": \"{{$randomPhoneNumber}}\",\r\n    \"aadhar_number\": \"123\",\r\n    \"primary_location\": \"123\",\r\n    \"sibling\": \"N/A\",\r\n    \"twin\": \"No\",\r\n    \"fathername\": \"N/A\",\r\n    \"mothername\": \"N/A\",\r\n    \"emergencynumber\": \"2021071042\",\r\n    \"address\": {\r\n        \"country\": \"{{$randomCountry}}\",\r\n        \"state\": \"{{$randomStreetName}}\",\r\n        \"city\": \"{{$randomCity}}\",\r\n        \"landmark\": \"{{$randomStreetAddress}}\"\r\n    }\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": "http://localhost:3000/api/v1/healthcare/createpatientbiodata"
+					},
+					"status": "Created",
+					"code": 201,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						},
+						{
+							"key": "Date",
+							"value": "Sat, 26 Oct 2024 14:42:13 GMT"
+						},
+						{
+							"key": "Content-Length",
+							"value": "151"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"Full name\": \"Dale Haley Kumar Wolff\",\n    \"message\": \"data has been successfully created!\",\n    \"patient_healthID\": \"HIDdf33751b-c7f5-4daf-a\",\n    \"status\": \"created\"\n}"
+				}
+			]
 		},
 		{
 			"name": "Get Patient Bio Data",
@@ -333,7 +556,54 @@
 					]
 				}
 			},
-			"response": []
+			"response": [
+				{
+					"name": "Get Patient Bio Data",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:3000/api/v1/healthcare/getpatientbiodata?healthID={{healthID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"v1",
+								"healthcare",
+								"getpatientbiodata"
+							],
+							"query": [
+								{
+									"key": "healthID",
+									"value": "{{healthID}}"
+								}
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						},
+						{
+							"key": "Date",
+							"value": "Sat, 26 Oct 2024 14:42:20 GMT"
+						},
+						{
+							"key": "Content-Length",
+							"value": "630"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"health_id\": \"HIDdf33751b-c7f5-4daf-a\",\n    \"fname\": \"Dale Haley\",\n    \"middlename\": \"Kumar\",\n    \"lname\": \"Wolff\",\n    \"sex\": \"Male\",\n    \"healthcare_id\": \"HCID04bd4df0-060d-43d1-a\",\n    \"dob\": \"DOMD\",\n    \"bloodgrp\": \"N/A\",\n    \"bmi\": \"N/A\",\n    \"marriage_status\": \"Single\",\n    \"weight\": \"N/A\",\n    \"email\": \"Macie.Lesch@gmail.com\",\n    \"mobilenumber\": \"206-500-0372\",\n    \"aadhar_number\": \"123\",\n    \"primary_location\": \"123\",\n    \"sibling\": \"N/A\",\n    \"twin\": \"No\",\n    \"fathername\": \"N/A\",\n    \"mothername\": \"N/A\",\n    \"emergencynumber\": \"2021071042\",\n    \"created_at\": \"2024-10-26T14:42:13.726Z\",\n    \"updated_at\": \"2024-10-26T14:42:13.726Z\",\n    \"address\": {\n        \"country\": \"Israel\",\n        \"state\": \"Abel Fords\",\n        \"city\": \"New Michele\",\n        \"landmark\": \"94939 Emmy Mountain\"\n    }\n}"
+				}
+			]
 		},
 		{
 			"name": "Get Healthcare details",
@@ -484,7 +754,44 @@
 				},
 				"url": "http://localhost:3000/api/v1/healthcare/createrecords"
 			},
-			"response": []
+			"response": [
+				{
+					"name": "Create Records",
+					"originalRequest": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"issue\":\"Golang issue\",\r\n    \"description\":\"Golang description\",\r\n    \"health_id\":\"2021071042\",\r\n    \"medical_severity\":\"golang medical medical_severity\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": "http://localhost:3000/api/v1/healthcare/createrecords"
+					},
+					"status": "Created",
+					"code": 201,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						},
+						{
+							"key": "Date",
+							"value": "Sat, 26 Oct 2024 14:42:27 GMT"
+						},
+						{
+							"key": "Content-Length",
+							"value": "55"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"message\": \"successfully Created\",\n    \"status\": \"pending \"\n}"
+				}
+			]
 		},
 		{
 			"name": "Get Patient Records",
@@ -522,7 +829,58 @@
 					]
 				}
 			},
-			"response": []
+			"response": [
+				{
+					"name": "Get Patient Records",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:3000/api/v1/healthcare/getpatientrecords?healthID={{healthID}}&list=2",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"v1",
+								"healthcare",
+								"getpatientrecords"
+							],
+							"query": [
+								{
+									"key": "healthID",
+									"value": "{{healthID}}"
+								},
+								{
+									"key": "list",
+									"value": "2"
+								}
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						},
+						{
+							"key": "Date",
+							"value": "Sat, 26 Oct 2024 14:42:34 GMT"
+						},
+						{
+							"key": "Content-Length",
+							"value": "64"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"message\": \"successfull\",\n    \"pagination\": 2,\n    \"patient_records\": null\n}"
+				}
+			]
 		},
 		{
 			"name": "Update Patient Data",
@@ -565,7 +923,63 @@
 					]
 				}
 			},
-			"response": []
+			"response": [
+				{
+					"name": "Update Patient Data",
+					"originalRequest": {
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"fname\": \"Helen of Troy\",\r\n    \"dob\": \"20/09/2001\",\r\n    \"bmi\": \"13\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:3000/api/v1/healthcare/updatepatientbiodata?healthID={{healthID}}",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"v1",
+								"healthcare",
+								"updatepatientbiodata"
+							],
+							"query": [
+								{
+									"key": "healthID",
+									"value": "{{healthID}}"
+								}
+							]
+						}
+					},
+					"status": "Accepted",
+					"code": 202,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						},
+						{
+							"key": "Date",
+							"value": "Sat, 26 Oct 2024 14:42:44 GMT"
+						},
+						{
+							"key": "Content-Length",
+							"value": "658"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"updated_details\": {\n        \"health_id\": \"HIDdf33751b-c7f5-4daf-a\",\n        \"fname\": \"Helen of Troy\",\n        \"middlename\": \"Kumar\",\n        \"lname\": \"Wolff\",\n        \"sex\": \"Male\",\n        \"healthcare_id\": \"HCID04bd4df0-060d-43d1-a\",\n        \"dob\": \"20/09/2001\",\n        \"bloodgrp\": \"N/A\",\n        \"bmi\": \"13\",\n        \"marriage_status\": \"Single\",\n        \"weight\": \"N/A\",\n        \"email\": \"Macie.Lesch@gmail.com\",\n        \"mobilenumber\": \"206-500-0372\",\n        \"aadhar_number\": \"123\",\n        \"primary_location\": \"123\",\n        \"sibling\": \"N/A\",\n        \"twin\": \"No\",\n        \"fathername\": \"N/A\",\n        \"mothername\": \"N/A\",\n        \"emergencynumber\": \"2021071042\",\n        \"created_at\": \"2024-10-26T14:42:13.726Z\",\n        \"updated_at\": \"2024-10-26T14:42:44.799Z\",\n        \"address\": {\n            \"country\": \"Israel\",\n            \"state\": \"Abel Fords\",\n            \"city\": \"New Michele\",\n            \"landmark\": \"94939 Emmy Mountain\"\n        }\n    }\n}"
+				}
+			]
 		}
 	],
 	"variable": [

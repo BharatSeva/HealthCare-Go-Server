@@ -10,11 +10,11 @@ import (
 func (c *Rabbitmq) Push_logs(category, name, email, healthId, healthcareId interface{}) error {
 	notificationQueue, err := c.ch.QueueDeclare(
 		"hip:logs", // queue name
-		false,              // durable
-		false,              // delete when unused
-		false,              // exclusive
-		false,              // no-wait
-		nil,                // arguments
+		false,      // durable
+		false,      // delete when unused
+		false,      // exclusive
+		false,      // no-wait
+		nil,        // arguments
 	)
 	if err != nil {
 		return err
@@ -34,6 +34,7 @@ func (c *Rabbitmq) Push_logs(category, name, email, healthId, healthcareId inter
 		body = map[string]interface{}{
 			"name":         name,
 			"category":     category,
+			"ipaddress":    healthId,
 			"email":        email,
 			"healthcareId": healthcareId,
 		}

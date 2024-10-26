@@ -1,87 +1,82 @@
-# Healthcare Service API - Golang
+![Go-Logo_Blue (1)](https://github.com/user-attachments/assets/369e83fe-82c3-463e-85fa-1fb229f5e89f)          
 
-This repository contains the **Healthcare Service API**, a scalable and high-performance service built with **Golang** for managing patient healthcare records, appointments, and notifications. The API is optimized for **low latency** and **high concurrency**, leveraging Golang.
+# Bharat Seva+ Healthcare Service API 🚀
 
-## Features
+This **Healthcare Service API**, crafted in **Golang**, powers high-concurrency environments with low-latency responses. Optimized for scalability, the API manages healthcare records, appointments, and patient notifications efficiently and securely.
 
-- **Patient Management:** Handle patient information efficiently with CRUD operations (Create, Retrieve, Update, Delete).
-- **Appointment Scheduling:** Seamless management of appointment booking, rescheduling, and cancellations.
-- **Healthcare Records:** Store and retrieve patient medical history and records securely.
-- **Notifications:** Send email/SMS notifications for appointment reminders and updates.
-- **JWT-based Authentication:** Secure access to all API endpoints with JSON Web Token (JWT) for authentication.
-- **Database Integration:** Seamless data management with PostgreSQL and MongoDB.
-- **Redis Caching:** Utilize Redis for caching and rate limiting to enhance performance. (coming Soon)
-- **RabbitMQ:** Process Request Asynchronously (coming Soon)
-- **High Performance:** Optimized for handling large requests concurrently with low response time.
-- **Docker Support:** Deploy easily with Docker for a consistent and reliable environment.
 
 ## Table of Contents
-
-- [Features](#features)
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Environment Variables](#environment-variables)
+- [Key Features](#key-features)
+- [Tech Requirements](#tech-requirements)
+- [Setup & Installation](#setup--installation)
 - [API Endpoints](#api-endpoints)
-- [Contributing](#contributing)
 - [License](#license)
 
-## Requirements
 
-- Go 1.20+
-- PostgreSQL and MongoDB
-- Docker (For containerization)
+## Key Features
+- **Patient Record Management:** Full CRUD operations for handling patient data with robust error handling and optimized retrieval.
+- **Appointments System:** End-to-end support for appointment creation, scheduling, rescheduling, and cancellations.
+- **Medical History Access:** A secure repository for patients' healthcare history, accessible through structured queries.
+- **Notification Services:** Automated email/SMS reminders for appointments and other key updates.
+- **JWT-Based Security:** JSON Web Tokens (JWT) for secure access to API endpoints.
+- **Multi-Database Integration:** Optimized data flow across **PostgreSQL**  and **MongoDB**.
+- **Redis Caching** : Real-time caching and rate-limiting for optimal response times and resource efficiency.
+- **RabbitMQ for Async Tasks** : Enhances processing of background tasks for smoother user experiences.
+- **High-Performance & Concurrent:** Built for high-request environments with minimal response times.
+- **Containerized with Docker:** Simple deployment through Docker for a reliable, cross-platform experience.
 
-## Environment Variables
 
-Make sure to set up the following environment variables:
+## Tech Requirements
+- **Go** v1.22+
+- **PostgreSQL** and **MongoDB** for data persistence
+- **Docker** for containerized environments
+- **RabbitMQ** for asynchronous tasks
+- **Redis** for caching and advance rate limiting
 
+## Setup & Installation
+Set up the following environment variables for smooth deployment:
 ```bash
+PORT=:3000
 MONGOURL=mongodb://rootuser:rootuser@mongodb:27017 
 POSTGRES=postgres://rootuser:rootuser@postgres:5432/postgres?sslmode=disable
-PORT=:3000
-KEY=VAIBHAVYADAV
 RABBITMQ=amqp://rootuser:rootuser@rabbitmq:5672/
+REDIS=redis:6379
+KEY=VAIBHAVYADAV
 ```
 
+1. Clone the Repository:
 
-## Installation
+```bash
+git clone https://github.com/BharatSeva/HealthCare-Go-Server.git
+cd HealthCare-Go-Server
+```
 
-1. Clone the repository:
-    ```bash
-    https://github.com/BharatSeva/HealthCare-Go-Server.git
-    cd HealthCare-Go-Server
-    ```
+2. Install Dependencies:
 
-2. Install Go modules:
-    ```bash
-    go mod download
-    ```
+```bash
+go mod download
+```
 
-3. Run Docker to set up PostgreSQL, MongoDB, and Redis:
-    ```bash
-    docker-compose up -d
-    ```
+3. Start Database Services:
 
-4. Start the server:
-    ```bash
-    go run main.go
-    ```
+```bash
+docker-compose up -d
+```
 
-5. Alternatively, you can start the docker container for same (make sure you've set .env file before this else it will be rejected)
-    ```bash
-    docker-compose up -d
-    ```
+4. Launch the Server:
 
+```bash
+go run main.go
+```
+### Alternatively, deploy using Docker:
 
+```bash
+docker-compose up -d
+```
 
+## API Endpoints
+Full documentation of the endpoints and their usage is available in our Postman collection [here](./Golang_HealthCare_BharatSeva.postman_collection.json).
 
-## API Endpoints  
-Please find Postman API Collection [here](./Golang_HealthCare_BharatSeva.postman_collection.json)  
+## License
+Licensed under the AGPL-3.0 license. See the [LICENSE](./LICENSE) file for full details.
 
-
-## LICENSE  
-This project is licensed under the Apache-2.0 license - see the [LICENSE](./LICENSE) file for details.   
-
-
-## Contributing
-Please find [CONTRIBUTING](./CONTRIBUTING.md) file to know how to get started with contributing.  

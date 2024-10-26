@@ -190,7 +190,7 @@ func (s *APIServer) SignUp(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// GET IP Addrress of user
-	// for logging and monitering purpose only, this will help you to 
+	// for logging and monitering purpose only, this will help you to
 	// moniter your account
 	ip := r.Header.Get("X-Forwarded-For")
 	// get from header if empty
@@ -231,10 +231,30 @@ func (s *APIServer) LoginUser(w http.ResponseWriter, r *http.Request) error {
 	login := &mod.Login{}
 	if err := json.NewDecoder(r.Body).Decode(&login); err != nil {
 		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
-			"message": "Error reading request body: " + err.Error(),
+			"message": "could not process your request please check your schema",
 		})
 	}
 
+	hip, err := s.store.LoginUser(login)
+	if err != nil {
+		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"message": "No user Found!",
+		})
+	}
+	// GET IP Addrress of user
+	// for logging and monitering purpose only, this will help you to
+	// moniter your account
+	ip := r.Header.Get("X-Forwarded-For")
+	// get from header if empty
+	if ip == "" {
+		ip = r.Header.Get("X-Real-IP")
+	}
+	// get from rmote address
+	if ip == "" {
+		ip, _, _ = net.SplitHostPort(r.RemoteAddr)
+	}
+	// Notify user everytime user login !
+	s.store.Push_logs("hip:account_login", hip.HealthcareName, hip.Email, ip, hip.HealthcareID)
 	// check quota limit
 	// from sql database first
 	count, err := s.store.GetTotalRequestCount(login.HealthcareID)
@@ -253,13 +273,6 @@ func (s *APIServer) LoginUser(w http.ResponseWriter, r *http.Request) error {
 		})
 	}
 
-	hip, err := s.store.LoginUser(login)
-	if err != nil {
-		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
-			"message": "No user Found!: " + err.Error(),
-		})
-	}
-
 	if err := bcrypt.CompareHashAndPassword([]byte(hip.Password), []byte(login.Password)); err != nil {
 		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
 			"message": "password mismatched",
@@ -271,8 +284,6 @@ func (s *APIServer) LoginUser(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	// notify user everytime user login !
-	s.store.Push_logs("hip:account_login", hip.HealthcareName, hip.Email, nil, hip.HealthcareID)
 
 	return writeJSON(w, http.StatusOK, map[string]interface{}{
 		"Expires In":      "5d",
