@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"strconv"
 	"time"
@@ -78,7 +79,15 @@ type Store interface {
 	LoginUser(*mod.Login) (*mod.HIPInfo, error)
 	ChangePreferance(string, map[string]interface{}) error
 	GetPreferance(string) (*mod.ChangePreferance, error)
+	GetTotalRequestCount(string) (int, error)
+	// counters goes here.....
+	// Recordsviewed_counter(string) error
+	// Recordscreated_counter(string) error
+	// Patientbiodata_created_counter(string) error
+	// Patientbiodata_viewed_counter(string) error
 
+	/////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////
 	// MongoDB methods goes here...
 	GetAppointments(string, int) ([]*mod.Appointments, error)
 	CreatePatient_bioData(string, *mod.PatientDetails) (*mod.PatientDetails, error)
@@ -89,19 +98,24 @@ type Store interface {
 	GetPatientRecords(string, int) (*[]mod.PatientRecords, error)
 	UpdatePatientBioData(string, map[string]interface{}) (*mod.PatientDetails, error)
 
+	/////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////
 	// rabbitmq methods goes here...
-	Push_SendNotification(interface{}, interface{}, interface{}, interface{}) error
+	Push_logs(interface{}, interface{}, interface{}, interface{}, interface{}) error
 	Push_appointment(category string) error
 	Push_patient_records(map[string]interface{}) error
 	Push_patientbiodata(map[string]interface{}) error
+	Push_counters(string, string) error
 
+	/////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////
 	// redis implementation Goes here
 	Set(string, interface{}) error
 	Get(string) (interface{}, error)
 	Close() error
-
 	// rate limiter goes here...
 	IsAllowed(string) (bool, error)
+	IsAllowed_leaky_bucket(string) (bool, error)
 }
 
 type APIServer struct {
@@ -123,18 +137,17 @@ func (s *APIServer) Run() {
 
 	// this one will serve from postgres
 	router.HandleFunc("/api/v1/healthcare/getpreferance", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.GetPreferance))))
-
-	router.HandleFunc("/api/v1/healthcare/changepreferance", withJWTAuth(makeHTTPHandlerFunc(s.ChangePreferance)))
-	router.HandleFunc("/api/v1/healthcare/deleteaccount", withJWTAuth(makeHTTPHandlerFunc(s.DeleteAccount)))
+	router.HandleFunc("/api/v1/healthcare/changepreferance", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.ChangePreferance))))
+	router.HandleFunc("/api/v1/healthcare/deleteaccount", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.DeleteAccount))))
 
 	// this is will server from mongodb
-	router.HandleFunc("/api/v1/healthcare/getappointments", withJWTAuth(makeHTTPHandlerFunc(s.GetAppointments)))
-	router.HandleFunc("/api/v1/healthcare/createpatientbiodata", withJWTAuth(makeHTTPHandlerFunc(s.CreatePatient_bioData)))
-	router.HandleFunc("/api/v1/healthcare/getpatientbiodata", withJWTAuth(makeHTTPHandlerFunc(s.GetpatientBioData)))
-	router.HandleFunc("/api/v1/healthcare/details", withJWTAuth(makeHTTPHandlerFunc(s.GetHealthcare_details)))
-	router.HandleFunc("/api/v1/healthcare/createrecords", withJWTAuth(makeHTTPHandlerFunc(s.CreatepatientRecords)))
-	router.HandleFunc("/api/v1/healthcare/getpatientrecords", withJWTAuth(makeHTTPHandlerFunc(s.GetPatientRecords)))
-	router.HandleFunc("/api/v1/healthcare/updatepatientbiodata", withJWTAuth(makeHTTPHandlerFunc(s.UpdatePatientBioData)))
+	router.HandleFunc("/api/v1/healthcare/getappointments", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.GetAppointments))))
+	router.HandleFunc("/api/v1/healthcare/createpatientbiodata", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.CreatePatient_bioData))))
+	router.HandleFunc("/api/v1/healthcare/getpatientbiodata", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.GetpatientBioData))))
+	router.HandleFunc("/api/v1/healthcare/details", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.GetHealthcare_details))))
+	router.HandleFunc("/api/v1/healthcare/createrecords", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.CreatepatientRecords))))
+	router.HandleFunc("/api/v1/healthcare/getpatientrecords", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.GetPatientRecords))))
+	router.HandleFunc("/api/v1/healthcare/updatepatientbiodata", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.UpdatePatientBioData))))
 
 	log.Println("HealthCare Server running on Port: ", s.listenAddr)
 	http.ListenAndServe(s.listenAddr, router)
@@ -146,26 +159,56 @@ func (s *APIServer) SignUp(w http.ResponseWriter, r *http.Request) error {
 			"message": "Method Not Allowed",
 		})
 	}
+
 	req := mod.HIPInfo{}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		return err
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"message": "Something mishappened from our side :)",
+			"error":   err.Error(),
+		})
 	}
 	user, err := mod.SignUpAccount(&req)
 	if err != nil {
-		return err
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"message": "Something mishappened from our side :)",
+			"error":   err.Error(),
+		})
 	}
+
 	_, err = s.store.SignUpAccount(user)
 	if err != nil {
-		return err
+		return writeJSON(w, http.StatusNotAcceptable, map[string]interface{}{
+			"message": "User already exists",
+		})
 	}
 
 	_, err = s.store.CreateHealthcare_details(user)
 	if err != nil {
-		return err
+		return writeJSON(w, http.StatusNotAcceptable, map[string]interface{}{
+			"message": "User already exists",
+		})
 	}
 
+	// GET IP Addrress of user
+	// for logging and monitering purpose only, this will help you to 
+	// moniter your account
+	ip := r.Header.Get("X-Forwarded-For")
+	// get from header if empty
+	if ip == "" {
+		ip = r.Header.Get("X-Real-IP")
+	}
+	// get from rmote address
+	if ip == "" {
+		ip, _, _ = net.SplitHostPort(r.RemoteAddr)
+	}
 	// send Email to healthcare that his account has been created now
-	s.store.Push_SendNotification("account_created", user.HealthcareName, user.Email, user.HealthcareID)
+	err = s.store.Push_logs("hip:account_created", user.HealthcareName, user.Email, ip, user.HealthcareID)
+	if err != nil {
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"message": "Something mishappened from our side :)",
+			"error":   err.Error(),
+		})
+	}
 
 	return writeJSON(w, http.StatusCreated, map[string]interface{}{
 		"status": "Successfully Created",
@@ -192,6 +235,24 @@ func (s *APIServer) LoginUser(w http.ResponseWriter, r *http.Request) error {
 		})
 	}
 
+	// check quota limit
+	// from sql database first
+	count, err := s.store.GetTotalRequestCount(login.HealthcareID)
+	if err != nil {
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"message": "Something mishappened from our side :)",
+			"error":   err.Error(),
+		})
+	}
+	// if count of request limit reached don't allow user to login
+	// limit the user
+	if count <= 0 {
+		return writeJSON(w, http.StatusNotAcceptable, map[string]interface{}{
+			"message": "Your Request Quota Has been reached",
+			"status":  "Quota Limit Reached (mail 21vaibhav11@gmail.com to increase the limit)",
+		})
+	}
+
 	hip, err := s.store.LoginUser(login)
 	if err != nil {
 		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
@@ -211,7 +272,7 @@ func (s *APIServer) LoginUser(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	// notify user everytime user login !
-	s.store.Push_SendNotification("account_login", hip.HealthcareName, hip.Email, hip.HealthcareID)
+	s.store.Push_logs("hip:account_login", hip.HealthcareName, hip.Email, nil, hip.HealthcareID)
 
 	return writeJSON(w, http.StatusOK, map[string]interface{}{
 		"Expires In":      "5d",
@@ -259,37 +320,44 @@ func (s *APIServer) GetPreferance(w http.ResponseWriter, r *http.Request) error 
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
 	}
 
+	// check if cache are needed or not
+	query := r.URL.Query()
+	cache := query.Get("cache")
+	if cache == "" {
+		cache = "true"
+	}
 	// Fetch from redis server first
-	fetched, err := s.store.Get("hip:pref:" + healthcareID)
-	if err != redis.Nil {
-		if err != nil {
-			return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
-				"error": err.Error(),
-			})
-		}
-		if fetched != nil {
-			fetchedStr, ok := fetched.(string)
-			if !ok {
-				return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
-					"error": "Failed to convert data to string",
-				})
-			}
-			var jsonBody *mod.ChangePreferance
-			err = json.Unmarshal([]byte(fetchedStr), &jsonBody)
+	if cache == "true" {
+		fetched, err := s.store.Get("hip:pref:" + healthcareID)
+		if err != redis.Nil {
 			if err != nil {
 				return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
-					"error": "Failed to parse the data",
+					"error": err.Error(),
 				})
 			}
-			return writeJSON(w, http.StatusOK, map[string]interface{}{
-				"status":     "cache hit",
-				"preferance": jsonBody,
-			})
+			if fetched != nil {
+				fetchedStr, ok := fetched.(string)
+				if !ok {
+					return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+						"error": "Failed to convert data to string",
+					})
+				}
+				var jsonBody *mod.ChangePreferance
+				err = json.Unmarshal([]byte(fetchedStr), &jsonBody)
+				if err != nil {
+					return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+						"error": "Failed to parse the data",
+					})
+				}
+				return writeJSON(w, http.StatusOK, map[string]interface{}{
+					"preferance": jsonBody,
+				})
+			}
 		}
 	}
 
 	// fetch from database
-	req, err = s.store.GetPreferance(healthcareID)
+	req, err := s.store.GetPreferance(healthcareID)
 	if err != nil {
 		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
 			"message": "Something mishappened from our side :)",
@@ -307,7 +375,6 @@ func (s *APIServer) GetPreferance(w http.ResponseWriter, r *http.Request) error 
 	}
 
 	return writeJSON(w, http.StatusOK, map[string]interface{}{
-		"status":     "cache miss",
 		"preferance": req,
 	})
 }
@@ -318,7 +385,9 @@ func (s *APIServer) DeleteAccount(w http.ResponseWriter, r *http.Request) error 
 			"error": r.Method + " method not allowed",
 		})
 	}
-	req := make(map[string]interface{})
+	req := map[string]interface{}{
+		"scheduled_deletion": true,
+	}
 	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(string)
 	if !ok {
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
@@ -331,7 +400,7 @@ func (s *APIServer) DeleteAccount(w http.ResponseWriter, r *http.Request) error 
 	}
 
 	// send email to user
-	s.store.Push_SendNotification("delete_account", nil, nil, healthcareID)
+	s.store.Push_logs("hip:delete_account", nil, nil, nil, healthcareID)
 
 	return writeJSON(w, http.StatusOK, map[string]string{"status": "account deletion scheduled, contact to tron21vaibhav@gmail.com to remove deletion ASAP."})
 }
@@ -410,9 +479,18 @@ func (s *APIServer) CreatePatient_bioData(w http.ResponseWriter, r *http.Request
 	// 		"err":     err.Error(),
 	// 	})
 	// }
-
 	// Notify user via email
-	s.store.Push_SendNotification("patient_biodata_created", patientDetails.FirstName, patientDetails.Email, patientDetails.HealthcareID)
+	s.store.Push_logs("hip:patient_biodata_created", patientDetails.FirstName, patientDetails.Email, patientDetails.HealthcareID, healthcareID)
+
+	// counters
+	// err = s.store.Push_counters("hip:patientbiodata_created_counter", patientDetails.HealthcareID)
+	// if err != nil {
+	// 	return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+	// 		"message": "Something Mishappened (Please Mail 21vaibhav11@gmail.com for this issue)",
+	// 		"status":  "Server Could not Process your Request",
+	// 		"err":     err.Error(),
+	// 	})
+	// }
 
 	return writeJSON(w, http.StatusCreated, map[string]interface{}{
 		"message":          "data has been successfully created!",
@@ -428,8 +506,11 @@ func (s *APIServer) GetpatientBioData(w http.ResponseWriter, r *http.Request) er
 			"error": r.Method + " method not allowed",
 		})
 	}
+	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(string)
+	if !ok {
+		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
+	}
 	query := r.URL.Query()
-
 	// Get the healthID from the query parameters
 	healthID := query.Get("healthID")
 	if healthID == "" {
@@ -438,10 +519,21 @@ func (s *APIServer) GetpatientBioData(w http.ResponseWriter, r *http.Request) er
 	}
 	patientDetails, err := s.store.GetPatient_bioData(healthID)
 	if err != nil {
-		return err
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": "something went wrong from our side :(",
+		})
 	}
 	// Notify user via email
-	s.store.Push_SendNotification("patient_biodata_viewed", patientDetails.FirstName, patientDetails.Email, patientDetails.HealthcareID)
+	s.store.Push_logs("hip:patient_biodata_viewed", patientDetails.FirstName, patientDetails.Email, patientDetails.HealthID, healthcareID)
+	// counters
+	// err = s.store.Push_counters("hip:patientbiodata_viewed_counter", patientDetails.HealthcareID)
+	// if err != nil {
+	// 	return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+	// 		"message": "Something Mishappened (Please Mail 21vaibhav11@gmail.com for this issue)",
+	// 		"status":  "Server Could not Process your Request",
+	// 		"err":     err.Error(),
+	// 	})
+	// }
 
 	return writeJSON(w, http.StatusOK, patientDetails)
 }
@@ -457,30 +549,38 @@ func (s *APIServer) GetHealthcare_details(w http.ResponseWriter, r *http.Request
 		return writeJSON(w, http.StatusBadRequest, map[string]string{"HealthCareID": "HealthCareID not found in token"})
 	}
 
+	// check if cache are needed or not
+	query := r.URL.Query()
+	cache := query.Get("cache")
+	if cache == "" {
+		cache = "true"
+	}
 	// Fetch from redis server first
-	fetched, err := s.store.Get("hip:details:" + healthcareID)
-	if err != redis.Nil {
-		if err != nil {
-			return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
-				"error": err.Error(),
-			})
-		}
-		if fetched != nil {
-			fetchedStr, ok := fetched.(string)
-			if !ok {
+	if cache == "true" {
+		// Fetch from redis server first
+		fetched, err := s.store.Get("hip:details:" + healthcareID)
+		if err != redis.Nil {
+			if err != nil {
 				return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
-					"error": "Failed to convert data to string",
+					"error": err.Error(),
 				})
 			}
-			var jsonBody *mod.HIPInfo
-			err = json.Unmarshal([]byte(fetchedStr), &jsonBody)
-			if err != nil {
-				return err
+			if fetched != nil {
+				fetchedStr, ok := fetched.(string)
+				if !ok {
+					return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+						"error": "Failed to convert data to string",
+					})
+				}
+				var jsonBody *mod.HIPInfo
+				err = json.Unmarshal([]byte(fetchedStr), &jsonBody)
+				if err != nil {
+					return err
+				}
+				return writeJSON(w, http.StatusOK, map[string]interface{}{
+					"preferance": jsonBody,
+				})
 			}
-			return writeJSON(w, http.StatusOK, map[string]interface{}{
-				"status":     "cache hit",
-				"preferance": jsonBody,
-			})
 		}
 	}
 
@@ -503,14 +603,15 @@ func (s *APIServer) GetHealthcare_details(w http.ResponseWriter, r *http.Request
 	}
 
 	return writeJSON(w, http.StatusOK, map[string]interface{}{
-		"status":     "cache miss",
 		"healthcare": hipdetails,
 	})
 }
 
 func (s *APIServer) CreatepatientRecords(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "POST" {
-		return fmt.Errorf("method is not allowed %s", r.Method)
+		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"error": r.Method + " method not allowed",
+		})
 	}
 	patientrecords := &mod.PatientRecords{}
 	err := json.NewDecoder(r.Body).Decode(&patientrecords)
@@ -524,8 +625,8 @@ func (s *APIServer) CreatepatientRecords(w http.ResponseWriter, r *http.Request)
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"message": "StatusUnauthorized"})
 	}
 
+	// pushing into database
 	// Leave this for now
-
 	// patientrecords_created, err := s.store.CreatepatientRecords(healthcareId, patientrecords)
 	// if err != nil {
 	// 	return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
@@ -548,17 +649,35 @@ func (s *APIServer) CreatepatientRecords(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Notify user via email
-	// s.store.Notification("patient_biodata_viewed", patientrecords_created, patientDetails.Email, patientDetails.HealthcareID)
+	err = s.store.Push_logs("hip:patient_record_created", patientrecords.ID, nil, patientrecords.HealthID, healthcareId)
+	if err != nil {
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"message": "Something Mishappened (Please Mail 21vaibhav11@gmail.com for this issue)",
+			"status":  "Server Could not Process your Request",
+			"err":     err.Error(),
+		})
+	}
+	// counters
+	// err = s.store.Push_counters("hip:recordscreated_counter", healthcareId)
+	// if err != nil {
+	// 	return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+	// 		"message": "Something Mishappened (Please Mail 21vaibhav11@gmail.com for this issue)",
+	// 		"status":  "Server Could not Process your Request",
+	// 		"err":     err.Error(),
+	// 	})
+	// }
 
 	return writeJSON(w, http.StatusCreated, map[string]interface{}{
 		"message": "successfully Created",
-		"status":  "pending " + healthcareId,
+		"status":  "pending ",
 	})
 }
 
 func (s *APIServer) GetPatientRecords(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "GET" {
-		return fmt.Errorf("%s method not allowed", r.Method)
+		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"error": r.Method + " method not allowed",
+		})
 	}
 	query := r.URL.Query()
 	health_id := query.Get("healthID")
@@ -591,7 +710,17 @@ func (s *APIServer) GetPatientRecords(w http.ResponseWriter, r *http.Request) er
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"message": "StatusUnauthorized"})
 	}
 
-	s.store.Push_SendNotification("patient_record_viewed", nil, nil, healthcareId)
+	s.store.Push_logs("hip:patient_record_viewed", nil, nil, health_id, healthcareId)
+
+	// counters (Will be removed soon)
+	// err = s.store.Push_counters("hip:recordsviewed_counter", healthcareId)
+	// if err != nil {
+	// 	return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+	// 		"message": "Something Mishappened (Please Mail 21vaibhav11@gmail.com for this issue)",
+	// 		"status":  "Server Could not Process your Request",
+	// 		"err":     err.Error(),
+	// 	})
+	// }
 
 	return writeJSON(w, http.StatusOK, map[string]interface{}{
 		"message":         "successfull",
@@ -602,7 +731,9 @@ func (s *APIServer) GetPatientRecords(w http.ResponseWriter, r *http.Request) er
 
 func (s *APIServer) UpdatePatientBioData(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "PATCH" {
-		return fmt.Errorf("method not allowed %s", r.Method)
+		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"error": r.Method + " method not allowed",
+		})
 	}
 	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(string)
 	if !ok {
@@ -630,9 +761,11 @@ func (s *APIServer) UpdatePatientBioData(w http.ResponseWriter, r *http.Request)
 		})
 	}
 	// Get HealthCareId and update the patient
-	s.store.Push_SendNotification("patient_biodata_updated", updatedPatient.FirstName, updatedPatient.Email, healthcareID)
+	s.store.Push_logs("hip:patient_biodata_updated", updatedPatient.FirstName, updatedPatient.Email, updatedPatient.HealthID, healthcareID)
 
-	return writeJSON(w, http.StatusAccepted, updatedPatient)
+	return writeJSON(w, http.StatusAccepted, map[string]interface{}{
+		"updated_details": updatedPatient,
+	})
 }
 
 // ///////////////////////////// ///////////////////// ///////////////// //////////// /////////////// ////////////// /
@@ -643,22 +776,47 @@ func (s *APIServer) RateLimiter(handlerFunc http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(string)
 		if !ok {
-			http.Error(w, "Invalid Request", http.StatusTooManyRequests)
+			writeJSON(w, http.StatusForbidden, apiError{Error: "Invalid token"})
 			return
 		}
-
-		// testing
-		fmt.Println("helllo")
-
-		allowed, err := s.store.IsAllowed(healthcareID)
+		allowed_fixed_window, err := s.store.IsAllowed(healthcareID)
 		if err != nil {
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			writeJSON(w, http.StatusInternalServerError, apiError{Error: "Something bad happened from our side :("})
 			return
 		}
-		if !allowed {
-			http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
+		if !allowed_fixed_window {
+			writeJSON(w, http.StatusTooManyRequests, map[string]interface{}{
+				"status":  "Request Blocked",
+				"message": "Too many request from your side, please login again",
+			})
 			return
 		}
+		// only check for at max 10,000 request per second at any given time
+		// this one checks for leaky bucket rate-limiting
+		allowed_leaky_bucket, err := s.store.IsAllowed_leaky_bucket(healthcareID)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, apiError{Error: "Something bad happened from our side :("})
+			return
+		}
+		if !allowed_leaky_bucket {
+			writeJSON(w, http.StatusTooManyRequests, map[string]interface{}{
+				"status":  "Request Blocked",
+				"message": "Too many request from your side, we've suspended all of your for 5 minutes",
+			})
+			return
+		}
+
+		// request counters
+		/////////////////////////////////////////////////////////////////////////////
+		/////////////////////////////////////////////////////////////////////////////
+		// err = s.store.Push_counters("hip:requestcounter", healthcareID)
+		// if err != nil {
+		// 	writeJSON(w, http.StatusInternalServerError, apiError{Error: "Something bad happened from our side :("})
+		// 	return
+		// }
+		/////////////////////////////////////////////////////////////////////////////
+		/////////////////////////////////////////////////////////////////////////////
+
 		handlerFunc(w, r)
 	}
 }

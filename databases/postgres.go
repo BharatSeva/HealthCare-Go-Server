@@ -59,11 +59,8 @@ func (s *PostgresStore) CreateTable() error {
 			healthID_created_count INTEGER NOT NULL,
 			account_locked VARCHAR(15) NOT NULL,
 			records_created_count INTEGER NOT NULL,
-			recordsViewed_count INTEGER NOT NULL,
-			totalnoOfviews_count INTEGER NOT NULL,
-			totalAppointments_count INTEGER NOT NULL,
-			totalRequest_count INTEGER NOT NULL,
-			about TEXT NOT NULL,
+			recordsviewed_count INTEGER NOT NULL,
+			totalrequest_count INTEGER NOT NULL,
 			appointmentFee INTEGER NOT NULL,
 			isAvailable VARCHAR(20) NOT NULL,
 			FOREIGN KEY (healthcare_id) REFERENCES HIP_TABLE(healthcare_id) ON DELETE CASCADE
@@ -101,16 +98,15 @@ func (s *PostgresStore) SignUpAccount(hip *HIPInfo) (int64, error) {
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING healthcare_id`
 
 	query1 := `INSERT INTO HealthCare_Logs (healthcare_id, scheduled_deletion, biodata_viewed_count, 
-			  healthID_created_count, account_locked, records_created_count, recordsViewed_count, 
-			  totalnoOfviews_count, totalAppointments_count, totalRequest_count, 
-			  about, appointmentFee, isAvailable)
-	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`
+			  healthID_created_count, account_locked, records_created_count, recordsviewed_count, 
+			  totalRequest_count, appointmentFee, isAvailable)
+	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
 
 	// Check if email already exists
 	exists, err := checkEmailExists(s.db, hip.Email)
 	if err != nil {
 		return 0, err
-	} 
+	}
 	if exists {
 		return 0, fmt.Errorf("email %s already exists", hip.Email)
 	}
@@ -123,7 +119,7 @@ func (s *PostgresStore) SignUpAccount(hip *HIPInfo) (int64, error) {
 	}
 
 	// Insert into HealthCare_Logs using the healthcare_id
-	Id, err := s.db.Exec(query1, healthcareID, "false", 0, 0, "false", 0, 0, 0, 0, 0, "TestingPhase - 1", 100, "true")
+	Id, err := s.db.Exec(query1, healthcareID, "false", 0, 0, "false", 0, 0, 100, 100, "true")
 	if err != nil {
 		return 0, err
 	}
@@ -194,6 +190,23 @@ func (s *PostgresStore) GetPreferance(healthcareId string) (*ChangePreferance, e
 	return preferance, nil
 }
 
+// Get totalRequest from database
+func (s *PostgresStore) GetTotalRequestCount(healthcare_id string) (int, error) {
+	var count int
+	query := `
+		SELECT totalrequest_count 
+		FROM HealthCare_Logs 
+		WHERE healthcare_id = $1;
+	`
+	// Execute the query and scan the result into the 'count' variable
+	err := s.db.QueryRow(query, healthcare_id).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to retrieve totalrequest_count: %w", err)
+	}
+
+	return count, nil
+}
+
 // Utility Functions
 func checkEmailExists(db *sql.DB, email string) (bool, error) {
 	var exists bool
@@ -201,3 +214,54 @@ func checkEmailExists(db *sql.DB, email string) (bool, error) {
 	err := db.QueryRow(query, email).Scan(&exists)
 	return exists, err
 }
+
+
+
+// func (s *PostgresStore) Recordsviewed_counter(healthcare_id string) error {
+// 	query := `
+// 	UPDATE HealthCare_Logs
+// 	SET recordsviewed_count = recordsviewed_count + 1
+// 	WHERE healthcare_id = $1;
+// `
+// 	_, err := s.db.Exec(query, healthcare_id)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to update recordsviewed_count: %w", err)
+// 	}
+// 	return nil
+// }
+// func (s *PostgresStore) Recordscreated_counter(healthcare_id string) error {
+// 	query := `
+// 	UPDATE HealthCare_Logs
+// 	SET records_created_count = records_created_count + 1
+// 	WHERE healthcare_id = $1;
+// `
+// 	_, err := s.db.Exec(query, healthcare_id)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to update records_created_count: %w", err)
+// 	}
+// 	return nil
+// }
+// func (s *PostgresStore) Patientbiodata_created_counter(healthcare_id string) error {
+// 	query := `
+// 	UPDATE HealthCare_Logs
+// 	SET healthID_created_count = healthID_created_count + 1
+// 	WHERE healthcare_id = $1;
+// `
+// 	_, err := s.db.Exec(query, healthcare_id)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to update healthID_created_count: %w", err)
+// 	}
+// 	return nil
+// }
+// func (s *PostgresStore) Patientbiodata_viewed_counter(healthcare_id string) error {
+// 	query := `
+// 	UPDATE HealthCare_Logs
+// 	SET biodata_viewed_count = biodata_viewed_count + 1
+// 	WHERE healthcare_id = $1;
+// `
+// 	_, err := s.db.Exec(query, healthcare_id)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to update biodata_viewed_count: %w", err)
+// 	}
+// 	return nil
+// }

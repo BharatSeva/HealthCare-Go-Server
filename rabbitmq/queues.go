@@ -6,15 +6,15 @@ import (
 	"log"
 )
 
-// With this consumer will also collect logs and push it into separate collection
-func (c *Rabbitmq) Push_SendNotification(category, name, email, healthcareId interface{}) error {
+// Important all COUNTERS, LOGS, EMAILS, ANALYTICS will be collected from here!!
+func (c *Rabbitmq) Push_logs(category, name, email, healthId, healthcareId interface{}) error {
 	notificationQueue, err := c.ch.QueueDeclare(
-		"notification", // queue name
-		false,          // durable
-		false,          // delete when unused
-		false,          // exclusive
-		false,          // no-wait
-		nil,            // arguments
+		"hip:logs", // queue name
+		false,              // durable
+		false,              // delete when unused
+		false,              // exclusive
+		false,              // no-wait
+		nil,                // arguments
 	)
 	if err != nil {
 		return err
@@ -22,63 +22,66 @@ func (c *Rabbitmq) Push_SendNotification(category, name, email, healthcareId int
 
 	var body interface{}
 	switch category {
-	case "account_created":
+	case "hip:account_created":
+		body = map[string]interface{}{
+			"name":         name,
+			"category":     category,
+			"email":        email,
+			"ipaddress":    healthId,
+			"healthcareId": healthcareId,
+		}
+	case "hip:account_login":
 		body = map[string]interface{}{
 			"name":         name,
 			"category":     category,
 			"email":        email,
 			"healthcareId": healthcareId,
 		}
-	case "account_login":
+	case "hip:patient_record_created":
+		body = map[string]interface{}{
+			"name":         name,
+			"email":        email,
+			"category":     category,
+			"healthId":     healthId,
+			"healthcareId": healthcareId,
+		}
+	case "hip:patient_record_viewed":
+		body = map[string]interface{}{
+			"name":         name,
+			"email":        email,
+			"category":     category,
+			"healthId":     healthId,
+			"healthcareId": healthcareId,
+		}
+	case "hip:appointment_confirm":
 		body = map[string]interface{}{
 			"name":         name,
 			"category":     category,
 			"email":        email,
 			"healthcareId": healthcareId,
 		}
-	case "patient_record_created":
-		body = map[string]interface{}{
-			"name":         name,
-			"category":     category,
-			"email":        email,
-			"healthcareId": healthcareId,
-		}
-	case "patient_record_viewed":
-		body = map[string]interface{}{
-			"name":         name,
-			"category":     category,
-			"email":        email,
-			"healthcareId": healthcareId,
-		}
-	case "appointment_confirm":
-		body = map[string]interface{}{
-			"name":         name,
-			"category":     category,
-			"email":        email,
-			"healthcareId": healthcareId,
-		}
-	case "patient_biodata_created":
+	case "hip:patient_biodata_created":
 		body = map[string]interface{}{
 			"name":          name,
 			"category":      category,
 			"email":         email,
 			"healthcare_id": healthcareId,
 		}
-	case "patient_biodata_viewed":
+	case "hip:patient_biodata_viewed":
+		body = map[string]interface{}{
+			"name":         name,
+			"email":        email,
+			"category":     category,
+			"healthcareId": healthcareId,
+		}
+	case "hip:patient_biodata_updated":
 		body = map[string]interface{}{
 			"name":         name,
 			"category":     category,
 			"email":        email,
 			"healthcareId": healthcareId,
 		}
-	case "patient_biodata_updated":
-		body = map[string]interface{}{
-			"name":         name,
-			"category":     category,
-			"email":        email,
-			"healthcareId": healthcareId,
-		}
-	case "delete_account":
+	case "hip:delete_account":
 		body = map[string]interface{}{
 			"name":         name,
 			"category":     category,
@@ -88,7 +91,7 @@ func (c *Rabbitmq) Push_SendNotification(category, name, email, healthcareId int
 	default:
 		body = map[string]interface{}{
 			"name":         "Vaibhav Yadav",
-			"category":     "missed",
+			"category":     "hip:missed",
 			"email":        "tron21vaibhav@gmail",
 			"healthcareId": "2021071042",
 		}
@@ -113,6 +116,69 @@ func (c *Rabbitmq) Push_SendNotification(category, name, email, healthcareId int
 		return err
 	}
 
+	log.Printf("[x] Sent %s", bodyjson)
+	return nil
+}
+
+// Depreciated will be removed soon
+// With this consumer will also collect logs and push it into separate collection
+func (c *Rabbitmq) Push_counters(category, healthcareId string) error {
+	notificationQueue, err := c.ch.QueueDeclare(
+		"hip:counters", // queue name
+		false,          // durable
+		false,          // delete when unused
+		false,          // exclusive
+		false,          // no-wait
+		nil,            // arguments
+	)
+	if err != nil {
+		return err
+	}
+	var body interface{}
+	switch category {
+	case "hip:requestcounter":
+		body = map[string]interface{}{
+			"healthcareId": healthcareId,
+		}
+	case "hip:recordsviewed_counter":
+		body = map[string]interface{}{
+			"healthcareId": healthcareId,
+		}
+	case "hip:recordscreated_counter":
+		body = map[string]interface{}{
+			"healthcareId": healthcareId,
+		}
+	case "hip:patientbiodata_created_counter":
+		body = map[string]interface{}{
+			"healthcareId": healthcareId,
+		}
+	case "hip:patientbiodata_viewed_counter":
+		body = map[string]interface{}{
+			"healthcareId": healthcareId,
+		}
+	default:
+		body = map[string]interface{}{
+			"healthcareId": "2021071042",
+			"to":           "missed",
+		}
+	}
+	bodyjson, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	// Publish message to queue
+	err = c.ch.Publish(
+		"",                     // exchange
+		notificationQueue.Name, // routing key
+		true,                   // mandatory
+		false,                  // immediate
+		amqp.Publishing{
+			ContentType: "application/json",
+			Body:        bodyjson,
+		})
+	if err != nil {
+		return err
+	}
 	log.Printf("[x] Sent %s", bodyjson)
 	return nil
 }

@@ -15,7 +15,7 @@ type CombinedStore struct {
 }
 
 // redis will contain url, limit -> no request allowed in window time
-func Combinedstore(redisURL string, limit int, window time.Duration, rabbitMqURL, postgresConn, mongoURI string, dbName string, collection []string) (*CombinedStore, error) {
+func Combinedstore(redisURL string, limit int64, window time.Duration, rabbitMqURL, postgresConn, mongoURI string, dbName string, collection []string) (*CombinedStore, error) {
 	postgres, err := ConnectToPostgreSQL(postgresConn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize postgres: %s", err.Error())
@@ -72,6 +72,13 @@ func (s *CombinedStore) GetPreferance(id string) (*ChangePreferance, error) {
 	return s.postgres.GetPreferance(id)
 }
 
+func (s *CombinedStore) GetTotalRequestCount(healthcare_id string) (int, error) {
+	return s.postgres.GetTotalRequestCount(healthcare_id)
+}
+
+
+
+// mongodb methods goes here.....
 func (s *CombinedStore) GetAppointments(id string, list int) ([]*Appointments, error) {
 	return s.mongodb.GetAppointments(id, list)
 }
@@ -103,9 +110,30 @@ func (s *CombinedStore) CreateHealthcare_details(healthcare_info *HIPInfo) (*HIP
 	return s.mongodb.CreateHealthcare_details(healthcare_info)
 }
 
+// /// ///////////////////////////////////////////
+// ////////////////////// 	These are counters
+
+// func (s *CombinedStore) Recordsviewed_counter(healthcare_id string) error {
+// 	return s.postgres.Recordsviewed_counter(healthcare_id)
+// }
+// func (s *CombinedStore) Recordscreated_counter(healthcare_id string) error {
+// 	return s.postgres.Recordscreated_counter(healthcare_id)
+// }
+// func (s *CombinedStore) Patientbiodata_created_counter(healthcare_id string) error {
+// 	return s.postgres.Patientbiodata_created_counter(healthcare_id)
+// }
+// func (s *CombinedStore) Patientbiodata_viewed_counter(healthcare_id string) error {
+// 	return s.postgres.Patientbiodata_viewed_counter(healthcare_id)
+// }
+// //////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////
+
 // rabbitmq implementation goes here
-func (s *CombinedStore) Push_SendNotification(category, name, email, id interface{}) error {
-	return s.rabbitmq.Push_SendNotification(category, name, email, id)
+func (s *CombinedStore) Push_counters(category, healthcare_id string) error {
+	return s.rabbitmq.Push_counters(category, healthcare_id)
+}
+func (s *CombinedStore) Push_logs(category, name, email, healthcare_id, health_id interface{}) error {
+	return s.rabbitmq.Push_logs(category, name, email, healthcare_id, health_id)
 }
 func (s *CombinedStore) Push_appointment(category string) error {
 	return s.rabbitmq.Push_appointment(category)
@@ -133,6 +161,10 @@ func (s *CombinedStore) Get(key string) (interface{}, error) {
 // this one is for rate limiting (rate limiter)
 func (s *CombinedStore) IsAllowed(healthcare_id string) (bool, error) {
 	return s.redisconn.IsAllowed(healthcare_id)
+}
+
+func (s *CombinedStore) IsAllowed_leaky_bucket(healthcare_id string) (bool, error) {
+	return s.redisconn.IsAllowed_leaky_bucket(healthcare_id)
 }
 
 func (s *CombinedStore) Close() error {

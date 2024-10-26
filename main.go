@@ -31,7 +31,7 @@ func main() {
 	// limit -> 10
 	// window -> per 5 second
 	// 							  redisurl limit timesecond
-	store, err := db.Combinedstore(redisURL, 10, 5*time.Second, rabbitMqURL, psqlInfo, mongoURI, "db", []string{"golang1", "golang2", "golang3", "golang4"})
+	store, err := db.Combinedstore(redisURL, 15, 10*time.Second, rabbitMqURL, psqlInfo, mongoURI, "db", []string{"golang1", "golang2", "golang3", "golang4"})
 	if err != nil {
 		log.Fatal("Failed to initialize store:", err)
 	}

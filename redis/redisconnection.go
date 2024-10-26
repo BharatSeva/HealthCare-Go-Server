@@ -13,11 +13,13 @@ type Redisconn struct {
 	conn *redis.Client
 
 	// this one is for rate_limiting
-	limit  int
-	window time.Duration
+	limit       int64
+	window      time.Duration
+	lastchecked time.Time
+	refill      time.Duration
 }
 
-func Connect2Redis(addr string, limit int, window time.Duration) (*Redisconn, error) {
+func Connect2Redis(addr string, limit int64, window time.Duration) (*Redisconn, error) {
 	client := redis.NewClient(&redis.Options{
 		Addr: addr,
 	})
