@@ -94,7 +94,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\r\n    \"email\": \"asdfasfasdfasdf@gmail.com\",\r\n    \"isAvailable\": true,\r\n    \"scheduled_deletion\": false\r\n}",
+					"raw": "{\r\n    \"email\": \"{{$randomEmail}}\",\r\n    \"isAvailable\": true,\r\n    \"scheduled_deletion\": false\r\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -116,9 +116,102 @@
 				},
 				"method": "GET",
 				"header": [],
-				"url": "http://localhost:3000/api/v1/healthcare/getpreferance"
+				"url": {
+					"raw": "http://localhost:3000/api/v1/healthcare/getpreferance?cache=false",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"v1",
+						"healthcare",
+						"getpreferance"
+					],
+					"query": [
+						{
+							"key": "cache",
+							"value": "false"
+						}
+					]
+				}
 			},
-			"response": []
+			"response": [
+				{
+					"name": "Get Preferance (without cache)",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"url": "http://localhost:3000/api/v1/healthcare/getpreferance"
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						},
+						{
+							"key": "Date",
+							"value": "Sat, 26 Oct 2024 05:41:19 GMT"
+						},
+						{
+							"key": "Content-Length",
+							"value": "117"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"preferance\": {\n        \"email\": \"Santa_Rath72@gmail.com\",\n        \"isAvailable\": true,\n        \"scheduled_deletion\": true\n    }\n}"
+				},
+				{
+					"name": "Get Preferance (with cache)",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:3000/api/v1/healthcare/getpreferance?cache=true",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"v1",
+								"healthcare",
+								"getpreferance"
+							],
+							"query": [
+								{
+									"key": "cache",
+									"value": "true"
+								}
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						},
+						{
+							"key": "Date",
+							"value": "Sat, 26 Oct 2024 05:46:39 GMT"
+						},
+						{
+							"key": "Content-Length",
+							"value": "95"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"preferance\": {\n        \"email\": \"Santa_Rath72@gmail.com\",\n        \"isAvailable\": true,\n        \"scheduled_deletion\": true\n    }\n}"
+				}
+			]
 		},
 		{
 			"name": "Get Appointments",
@@ -197,7 +290,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\r\n    \"fname\": \"{{$randomFullName}}\",\r\n    \"middlename\": \"\",\r\n    \"lname\": \"{{$randomLastName}}\",\r\n    \"sex\": \"Male\",\r\n    \"dob\": \"DOMD\",\r\n    \"bloodgrp\": \"N/A\",\r\n    \"bmi\": \"N/A\",\r\n    \"marriage_status\": \"Single\",\r\n    \"weight\": \"N/A\",\r\n    \"email\": \"{{$randomEmail}}\",\r\n    \"mobilenumber\": \"{{$randomPhoneNumber}}\",\r\n    \"aadhar_number\": \"123\",\r\n    \"primary_location\": \"123\",\r\n    \"sibling\": \"N/A\",\r\n    \"twin\": \"No\",\r\n    \"fathername\": \"N/A\",\r\n    \"mothername\": \"N/A\",\r\n    \"emergencynumber\": \"2021071042\",\r\n    \"address\": {\r\n        \"country\": \"{{$randomCountry}}\",\r\n        \"state\": \"{{$randomStreetName}}\",\r\n        \"city\": \"{{$randomCity}}\",\r\n        \"landmark\": \"{{$randomStreetAddress}}\"\r\n    }\r\n}",
+					"raw": "{\r\n    \"fname\": \"{{$randomFullName}}\",\r\n    \"middlename\": \"Kumar\",\r\n    \"lname\": \"{{$randomLastName}}\",\r\n    \"sex\": \"Male\",\r\n    \"dob\": \"DOMD\",\r\n    \"bloodgrp\": \"N/A\",\r\n    \"bmi\": \"N/A\",\r\n    \"marriage_status\": \"Single\",\r\n    \"weight\": \"N/A\",\r\n    \"email\": \"{{$randomEmail}}\",\r\n    \"mobilenumber\": \"{{$randomPhoneNumber}}\",\r\n    \"aadhar_number\": \"123\",\r\n    \"primary_location\": \"123\",\r\n    \"sibling\": \"N/A\",\r\n    \"twin\": \"No\",\r\n    \"fathername\": \"N/A\",\r\n    \"mothername\": \"N/A\",\r\n    \"emergencynumber\": \"2021071042\",\r\n    \"address\": {\r\n        \"country\": \"{{$randomCountry}}\",\r\n        \"state\": \"{{$randomStreetName}}\",\r\n        \"city\": \"{{$randomCity}}\",\r\n        \"landmark\": \"{{$randomStreetAddress}}\"\r\n    }\r\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -253,9 +346,121 @@
 				},
 				"method": "GET",
 				"header": [],
-				"url": "http://localhost:3000/api/v1/healthcare/details"
+				"url": {
+					"raw": "http://localhost:3000/api/v1/healthcare/details?cache=true",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"v1",
+						"healthcare",
+						"details"
+					],
+					"query": [
+						{
+							"key": "cache",
+							"value": "true"
+						}
+					]
+				}
 			},
-			"response": []
+			"response": [
+				{
+					"name": "Get Healthcare details (without cache)",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:3000/api/v1/healthcare/details?cache=false",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"v1",
+								"healthcare",
+								"details"
+							],
+							"query": [
+								{
+									"key": "cache",
+									"value": "false"
+								}
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						},
+						{
+							"key": "Date",
+							"value": "Sat, 26 Oct 2024 05:43:06 GMT"
+						},
+						{
+							"key": "Content-Length",
+							"value": "528"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"healthcare\": {\n        \"healthcare_id\": \"HCID4ccc818e-bfcc-459d-a\",\n        \"healthcare_license\": \"4ccc818e-bfcc-459d-a\",\n        \"name\": \"Conrad Lesch Hospital\",\n        \"email\": \"Gaylord79@gmail.com\",\n        \"availability\": \"Yes\",\n        \"total_facilities\": 200,\n        \"total_mbbs_doc\": 58,\n        \"total_worker\": 400,\n        \"no_of_beds\": 200,\n        \"about\": \"Dynamic\",\n        \"date_of_registration\": \"0001-01-01T00:00:00Z\",\n        \"password\": \"$2a$10$6q.TnX1OhPOM/Xspk4RCcetUjcyY4zluZA.CDcuEMmnBKW/okpkTq\",\n        \"address\": {\n            \"country\": \"Myanmar\",\n            \"state\": \"Lake Orionburgh\",\n            \"city\": \"Elroyville\",\n            \"landmark\": \"Towne Lodge\"\n        }\n    }\n}"
+				},
+				{
+					"name": "Get Healthcare details (with cache)",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:3000/api/v1/healthcare/details?cache=true",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"v1",
+								"healthcare",
+								"details"
+							],
+							"query": [
+								{
+									"key": "cache",
+									"value": "true"
+								}
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						},
+						{
+							"key": "Date",
+							"value": "Sat, 26 Oct 2024 05:47:30 GMT"
+						},
+						{
+							"key": "Content-Length",
+							"value": "506"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"preferance\": {\n        \"healthcare_id\": \"HCID4ccc818e-bfcc-459d-a\",\n        \"healthcare_license\": \"4ccc818e-bfcc-459d-a\",\n        \"name\": \"Conrad Lesch Hospital\",\n        \"email\": \"Gaylord79@gmail.com\",\n        \"availability\": \"Yes\",\n        \"total_facilities\": 200,\n        \"total_mbbs_doc\": 58,\n        \"total_worker\": 400,\n        \"no_of_beds\": 200,\n        \"about\": \"Dynamic\",\n        \"date_of_registration\": \"0001-01-01T00:00:00Z\",\n        \"password\": \"$2a$10$6q.TnX1OhPOM/Xspk4RCcetUjcyY4zluZA.CDcuEMmnBKW/okpkTq\",\n        \"address\": {\n            \"country\": \"Myanmar\",\n            \"state\": \"Lake Orionburgh\",\n            \"city\": \"Elroyville\",\n            \"landmark\": \"Towne Lodge\"\n        }\n    }\n}"
+				}
+			]
 		},
 		{
 			"name": "Create Records",
@@ -293,7 +498,7 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "http://localhost:3000/api/v1/healthcare/getpatientrecords?healthID=2021071042&list=2",
+					"raw": "http://localhost:3000/api/v1/healthcare/getpatientrecords?healthID={{healthID}}&list=2",
 					"protocol": "http",
 					"host": [
 						"localhost"
@@ -308,7 +513,7 @@
 					"query": [
 						{
 							"key": "healthID",
-							"value": "2021071042"
+							"value": "{{healthID}}"
 						},
 						{
 							"key": "list",
@@ -332,7 +537,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\r\n    \"fname\": \"Changed Name\",\r\n    \"dob\": \"20/09/2001\",\r\n    \"bmi\": \"13\"\r\n}",
+					"raw": "{\r\n    \"fname\": \"Helen of Troy\",\r\n    \"dob\": \"20/09/2001\",\r\n    \"bmi\": \"13\"\r\n}",
 					"options": {
 						"raw": {
 							"language": "json"
