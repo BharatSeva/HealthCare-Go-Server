@@ -24,32 +24,32 @@ func (c *Rabbitmq) Push_logs(category, name, email, healthId, healthcareId inter
 	switch category {
 	case "hip:account_created":
 		body = map[string]interface{}{
-			"name":         name,
-			"category":     category,
-			"email":        email,
-			"ipaddress":    healthId,
-			"healthcareId": healthcareId,
+			"hip_name":      name,
+			"category":      category,
+			"hip_email":     email,
+			"hip_ipaddress": healthId,
+			"healthcareId":  healthcareId,
 		}
 	case "hip:account_login":
 		body = map[string]interface{}{
-			"name":         name,
-			"category":     category,
-			"ipaddress":    healthId,
-			"email":        email,
-			"healthcareId": healthcareId,
+			"hip_name":      name,
+			"category":      category,
+			"hip_ipaddress": healthId,
+			"hip_email":     email,
+			"healthcareId":  healthcareId,
 		}
 	case "hip:patient_record_created":
 		body = map[string]interface{}{
-			"name":         name,
-			"email":        email,
+			// "name":         name,
+			// "email":        email,
 			"category":     category,
 			"healthId":     healthId,
 			"healthcareId": healthcareId,
 		}
 	case "hip:patient_record_viewed":
 		body = map[string]interface{}{
-			"name":         name,
-			"email":        email,
+			// "patient_name":  name,
+			// "patient_email": email,
 			"category":     category,
 			"healthId":     healthId,
 			"healthcareId": healthcareId,
@@ -59,34 +59,38 @@ func (c *Rabbitmq) Push_logs(category, name, email, healthId, healthcareId inter
 			"name":         name,
 			"category":     category,
 			"email":        email,
+			"healthId":     healthId,
 			"healthcareId": healthcareId,
 		}
 	case "hip:patient_biodata_created":
 		body = map[string]interface{}{
-			"name":          name,
+			"patient_name":  name,
+			"patient_email": email,
 			"category":      category,
-			"email":         email,
+			"healthId":      healthId,
 			"healthcare_id": healthcareId,
 		}
 	case "hip:patient_biodata_viewed":
 		body = map[string]interface{}{
-			"name":         name,
-			"email":        email,
+			// "name":         name,
+			// "email":        email,
 			"category":     category,
+			"healthId":     healthId,
 			"healthcareId": healthcareId,
 		}
 	case "hip:patient_biodata_updated":
 		body = map[string]interface{}{
-			"name":         name,
-			"category":     category,
-			"email":        email,
-			"healthcareId": healthcareId,
+			"patient_name":  name,
+			"category":      category,
+			"patient_email": email,
+			"healthId":      healthId,
+			"healthcareId":  healthcareId,
 		}
 	case "hip:delete_account":
 		body = map[string]interface{}{
-			"name":         name,
+			"hip_name":     name,
 			"category":     category,
-			"email":        email,
+			"hip_email":    email,
 			"healthcareId": healthcareId,
 		}
 	default:
@@ -118,6 +122,68 @@ func (c *Rabbitmq) Push_logs(category, name, email, healthId, healthcareId inter
 	}
 
 	log.Printf("[x] Sent %s", bodyjson)
+	return nil
+}
+
+// patient records goes here...
+func (c *Rabbitmq) Push_patient_records(record map[string]interface{}) error {
+	notification_queue, err := c.ch.QueueDeclare(
+		"hip:patient_records", // queue name
+		false,                 // durable
+		false,                 // delete when unused
+		false,                 // exclusive
+		false,                 // no-wait
+		nil,                   // arguments
+	)
+	if err != nil {
+		return err
+	}
+
+	bodyjson, err := json.Marshal(record)
+	if err != nil {
+		return err
+	}
+
+	err = c.ch.Publish(
+		"",                      // exchange
+		notification_queue.Name, // routing key
+		true,                    // mandatory
+		false,                   // immediate
+		amqp.Publishing{
+			ContentType: "application/json",
+			Body:        bodyjson,
+		})
+	if err != nil {
+		return err
+	}
+
+	log.Printf(" [x] Sent patient_records_created %s", bodyjson)
+	return nil
+}
+
+func (c *Rabbitmq) Push_appointment(category string) error {
+	notification_queue, err := c.ch.QueueDeclare(
+		category, // queue name
+		false,    // durable
+		false,    // delete when unused
+		false,    // exclusive
+		false,    // no-wait
+		nil,      // arguments
+	)
+	failOnError(err, "Failed to declare a queue")
+	body := "This is notification"
+	err = c.ch.Publish(
+		"",                      // exchange
+		notification_queue.Name, // routing key
+		true,                    // mandatory
+		false,                   // immediate
+		amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        []byte(body),
+		})
+	failOnError(err, "Failed to publish a message")
+
+	log.Printf(" [x] Sent %s", body)
 	return nil
 }
 
@@ -216,67 +282,5 @@ func (c *Rabbitmq) Push_patientbiodata(biodata map[string]interface{}) error {
 	}
 
 	log.Printf(" [x] Sent %s", bodyjson)
-	return nil
-}
-
-// patient records goes here...
-func (c *Rabbitmq) Push_patient_records(record map[string]interface{}) error {
-	notification_queue, err := c.ch.QueueDeclare(
-		"patient_records", // queue name
-		false,             // durable
-		false,             // delete when unused
-		false,             // exclusive
-		false,             // no-wait
-		nil,               // arguments
-	)
-	if err != nil {
-		return err
-	}
-
-	bodyjson, err := json.Marshal(record)
-	if err != nil {
-		return err
-	}
-
-	err = c.ch.Publish(
-		"",                      // exchange
-		notification_queue.Name, // routing key
-		true,                    // mandatory
-		false,                   // immediate
-		amqp.Publishing{
-			ContentType: "application/json",
-			Body:        bodyjson,
-		})
-	if err != nil {
-		return err
-	}
-
-	log.Printf(" [x] Sent %s", bodyjson)
-	return nil
-}
-
-func (c *Rabbitmq) Push_appointment(category string) error {
-	notification_queue, err := c.ch.QueueDeclare(
-		category, // queue name
-		false,    // durable
-		false,    // delete when unused
-		false,    // exclusive
-		false,    // no-wait
-		nil,      // arguments
-	)
-	failOnError(err, "Failed to declare a queue")
-	body := "This is notification"
-	err = c.ch.Publish(
-		"",                      // exchange
-		notification_queue.Name, // routing key
-		true,                    // mandatory
-		false,                   // immediate
-		amqp.Publishing{
-			ContentType: "text/plain",
-			Body:        []byte(body),
-		})
-	failOnError(err, "Failed to publish a message")
-
-	log.Printf(" [x] Sent %s", body)
 	return nil
 }

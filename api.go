@@ -22,7 +22,9 @@ import (
 type contextKey string
 
 const (
-	contextKeyHealthCareID = contextKey("healthcareID")
+	contextKeyHealthCareID      = contextKey("healthcareID")
+	contextKeyEmailHealthCareID = contextKey("healthcare_email")
+	contextKeyHealthCareName    = contextKey("healthcare_name")
 )
 
 // type postgres interface {
@@ -403,6 +405,14 @@ func (s *APIServer) DeleteAccount(w http.ResponseWriter, r *http.Request) error 
 	if !ok {
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
 	}
+	email_healthcareID, ok := r.Context().Value(contextKeyEmailHealthCareID).(string)
+	if !ok {
+		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
+	}
+	healthcare_name, ok := r.Context().Value(contextKeyHealthCareName).(string)
+	if !ok {
+		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
+	}
 	err := s.store.ChangePreferance(healthcareID, req)
 	if err != nil {
 		return writeJSON(w, http.StatusNotImplemented, map[string]interface{}{
@@ -410,10 +420,18 @@ func (s *APIServer) DeleteAccount(w http.ResponseWriter, r *http.Request) error 
 		})
 	}
 
-	// send email to user
-	s.store.Push_logs("hip:delete_account", nil, nil, nil, healthcareID)
+	// Send email to user
+	err = s.store.Push_logs("hip:delete_account", healthcare_name, email_healthcareID, nil, healthcareID)
+	if err != nil {
+		return writeJSON(w, http.StatusNotImplemented, map[string]interface{}{
+			"error": err.Error(),
+		})
+	}
 
-	return writeJSON(w, http.StatusOK, map[string]string{"status": "account deletion scheduled, contact to tron21vaibhav@gmail.com to remove deletion ASAP."})
+	return writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status":  "Account deletion scheduled",
+		"message": "mail tron21vaibhav@gmail.com to remove deletion ASAP.",
+	})
 }
 
 /////////////////////////////// MONGODB METHODS GOES HERE //////////////////////////////////
@@ -636,6 +654,9 @@ func (s *APIServer) CreatepatientRecords(w http.ResponseWriter, r *http.Request)
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"message": "StatusUnauthorized"})
 	}
 
+	// assign healthcareId
+	patientrecords.Createdby_ = healthcareId
+
 	// pushing into database
 	// Leave this for now
 	// patientrecords_created, err := s.store.CreatepatientRecords(healthcareId, patientrecords)
@@ -660,7 +681,7 @@ func (s *APIServer) CreatepatientRecords(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Notify user via email
-	err = s.store.Push_logs("hip:patient_record_created", patientrecords.ID, nil, patientrecords.HealthID, healthcareId)
+	err = s.store.Push_logs("hip:patient_record_created", nil, nil, patientrecords.HealthID, healthcareId)
 	if err != nil {
 		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
 			"message": "Something Mishappened (Please Mail 21vaibhav11@gmail.com for this issue)",
@@ -678,9 +699,9 @@ func (s *APIServer) CreatepatientRecords(w http.ResponseWriter, r *http.Request)
 	// 	})
 	// }
 
-	return writeJSON(w, http.StatusCreated, map[string]interface{}{
-		"message": "successfully Created",
-		"status":  "pending ",
+	return writeJSON(w, http.StatusOK, map[string]interface{}{
+		"message": "successfully processed, within few hours your records will be created",
+		"status":  "pending",
 	})
 }
 
@@ -834,8 +855,10 @@ func (s *APIServer) RateLimiter(handlerFunc http.HandlerFunc) http.HandlerFunc {
 
 func createJWT(account *mod.HIPInfo) (string, error) {
 	claims := jwt.MapClaims{
-		"expiresAt":    time.Now().Add(5 * 24 * time.Hour).Unix(), //setting it to 5days from now
-		"healthcareID": account.HealthcareID,
+		"expiresAt":        time.Now().Add(5 * 24 * time.Hour).Unix(), //setting it to 5days from now
+		"healthcareID":     account.HealthcareID,
+		"healthcare_email": account.Email,
+		"healthcare_name":  account.HealthcareName,
 	}
 	signKey := "PASSWORD"
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -864,15 +887,29 @@ func withJWTAuth(handlerFunc http.HandlerFunc) http.HandlerFunc {
 
 		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 			healthcareID, _ := claims["healthcareID"].(string)
-			// block the request if token tempered
+			emailHealthcareID, _ := claims["healthcare_email"].(string)
+			nameHealthcare, _ := claims["healthcare_name"].(string)
+
+			// Block the request if healthcareID is missing or invalid
 			if healthcareID == "" {
-				writeJSON(w, http.StatusForbidden, apiError{Error: "Invalid Token"})
+				writeJSON(w, http.StatusForbidden, apiError{Error: "Invalid Token: healthcareID missing"})
 				return
 			}
 
-			// validate ratelimiter
+			// Block the request if emailHealthcareID is missing or invalid
+			if emailHealthcareID == "" {
+				writeJSON(w, http.StatusForbidden, apiError{Error: "Invalid Token: healthcare_email missing"})
+				return
+			}
+			if nameHealthcare == "" {
+				writeJSON(w, http.StatusForbidden, apiError{Error: "Invalid Token: healthcare name missing"})
+				return
+			}
 
 			ctx := context.WithValue(r.Context(), contextKeyHealthCareID, healthcareID)
+			ctx = context.WithValue(ctx, contextKeyEmailHealthCareID, emailHealthcareID)
+			ctx = context.WithValue(ctx, contextKeyHealthCareName, nameHealthcare)
+
 			handlerFunc(w, r.WithContext(ctx))
 		} else {
 			writeJSON(w, http.StatusForbidden, apiError{Error: "Invalid token claims"})

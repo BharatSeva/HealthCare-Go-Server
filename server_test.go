@@ -1,4 +1,4 @@
-package main // Change this to your actual package name
+package main
 
 import (
 	"bytes"
@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Define your request and response structures
 type Address struct {
 	Country  string `json:"country"`
 	Landmark string `json:"landmark"`
@@ -43,7 +42,6 @@ type RegisterResponse struct {
 	HealthcareDetails HealthcareDetails `json:"healthcare_details"`
 }
 
-// Mock handler function for registration
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -187,7 +185,6 @@ func TestLoginEndpoint(t *testing.T) {
 				assert.Empty(t, body) // Expecting no body on unauthorized
 			},
 		},
-		// Add more test cases as needed
 	}
 
 	for _, tt := range tests {
@@ -197,7 +194,7 @@ func TestLoginEndpoint(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 
 			w := httptest.NewRecorder()
-			LoginHandler(w, req) // Call the handler function
+			LoginHandler(w, req)
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
 			if tt.validateResponse != nil {

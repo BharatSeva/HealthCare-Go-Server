@@ -27,6 +27,7 @@ func Seed_createUniquepatient(collection *mongo.Collection) error {
 	}
 	return nil
 }
+
 func Seed_createUniqueHealthInfo(collection *mongo.Collection) error {
 	index := mongo.IndexModel{
 		Keys:    bson.D{{Key: "name", Value: 1}, {Key: "email", Value: 1}, {Key: "Address", Value: 1}},
