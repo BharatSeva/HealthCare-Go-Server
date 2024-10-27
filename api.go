@@ -103,7 +103,7 @@ type Store interface {
 	/////////////////////////////////////////////////////////////////////////////
 	/////////////////////////////////////////////////////////////////////////////
 	// rabbitmq methods goes here...
-	Push_logs(interface{}, interface{}, interface{}, interface{}, interface{}) error
+	Push_logs(interface{}, interface{}, interface{}, interface{}, interface{}, interface{}) error
 	Push_appointment(category string) error
 	Push_patient_records(map[string]interface{}) error
 	Push_patientbiodata(map[string]interface{}) error
@@ -204,7 +204,7 @@ func (s *APIServer) SignUp(w http.ResponseWriter, r *http.Request) error {
 		ip, _, _ = net.SplitHostPort(r.RemoteAddr)
 	}
 	// send Email to healthcare that his account has been created now
-	err = s.store.Push_logs("hip:account_created", user.HealthcareName, user.Email, ip, user.HealthcareID)
+	err = s.store.Push_logs("hip:account_created", user.HealthcareName, user.Email, ip, user.HealthcareName, user.HealthcareID)
 	if err != nil {
 		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
 			"message": "Something mishappened from our side :)",
@@ -256,7 +256,7 @@ func (s *APIServer) LoginUser(w http.ResponseWriter, r *http.Request) error {
 		ip, _, _ = net.SplitHostPort(r.RemoteAddr)
 	}
 	// Notify user everytime user login !
-	s.store.Push_logs("hip:account_login", hip.HealthcareName, hip.Email, ip, hip.HealthcareID)
+	s.store.Push_logs("hip:account_login", hip.HealthcareName, hip.Email, ip, hip.HealthcareName, hip.HealthcareID)
 	// check quota limit
 	// from sql database first
 	count, err := s.store.GetTotalRequestCount(login.HealthcareID)
@@ -421,7 +421,7 @@ func (s *APIServer) DeleteAccount(w http.ResponseWriter, r *http.Request) error 
 	}
 
 	// Send email to user
-	err = s.store.Push_logs("hip:delete_account", healthcare_name, email_healthcareID, nil, healthcareID)
+	err = s.store.Push_logs("hip:delete_account", healthcare_name, email_healthcareID, nil,healthcare_name, healthcareID)
 	if err != nil {
 		return writeJSON(w, http.StatusNotImplemented, map[string]interface{}{
 			"error": err.Error(),
@@ -483,6 +483,11 @@ func (s *APIServer) CreatePatient_bioData(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
 	}
+	healthcare_name, ok := r.Context().Value(contextKeyHealthCareName).(string)
+	if !ok {
+		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
+	}
+
 	patientDetails, err := mod.CreatePatient_bioData(healthcareID, patient)
 	if err != nil {
 		return err
@@ -509,7 +514,7 @@ func (s *APIServer) CreatePatient_bioData(w http.ResponseWriter, r *http.Request
 	// 	})
 	// }
 	// Notify user via email
-	s.store.Push_logs("hip:patient_biodata_created", patientDetails.FirstName, patientDetails.Email, patientDetails.HealthcareID, healthcareID)
+	s.store.Push_logs("hip:patient_biodata_created", patientDetails.FirstName, patientDetails.Email, patientDetails.HealthID, healthcare_name, healthcareID)
 
 	// counters
 	// err = s.store.Push_counters("hip:patientbiodata_created_counter", patientDetails.HealthcareID)
@@ -546,6 +551,12 @@ func (s *APIServer) GetpatientBioData(w http.ResponseWriter, r *http.Request) er
 		http.Error(w, "Missing healthID in URL", http.StatusBadRequest)
 		return fmt.Errorf("missing healthID in URL")
 	}
+	// healthcare_name
+	healthcare_name, ok := r.Context().Value(contextKeyHealthCareName).(string)
+	if !ok {
+		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "healthcare_name not found in token"})
+	}
+
 	patientDetails, err := s.store.GetPatient_bioData(healthID)
 	if err != nil {
 		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
@@ -553,7 +564,12 @@ func (s *APIServer) GetpatientBioData(w http.ResponseWriter, r *http.Request) er
 		})
 	}
 	// Notify user via email
-	s.store.Push_logs("hip:patient_biodata_viewed", patientDetails.FirstName, patientDetails.Email, patientDetails.HealthID, healthcareID)
+	err = s.store.Push_logs("hip:patient_biodata_viewed", patientDetails.FirstName, patientDetails.Email, patientDetails.HealthID, healthcare_name, healthcareID)
+	if err != nil {
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": "something went wrong from our side :(",
+		})
+	}
 	// counters
 	// err = s.store.Push_counters("hip:patientbiodata_viewed_counter", patientDetails.HealthcareID)
 	// if err != nil {
@@ -653,6 +669,11 @@ func (s *APIServer) CreatepatientRecords(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"message": "StatusUnauthorized"})
 	}
+	healthcare_name, ok := r.Context().Value(contextKeyHealthCareName).(string)
+	if !ok {
+		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "healthcare_name not found in token"})
+	}
+
 
 	// assign healthcareId
 	patientrecords.Createdby_ = healthcareId
@@ -681,7 +702,7 @@ func (s *APIServer) CreatepatientRecords(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Notify user via email
-	err = s.store.Push_logs("hip:patient_record_created", nil, nil, patientrecords.HealthID, healthcareId)
+	err = s.store.Push_logs("hip:patient_record_created", nil, nil, patientrecords.HealthID, healthcare_name, healthcareId)
 	if err != nil {
 		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
 			"message": "Something Mishappened (Please Mail 21vaibhav11@gmail.com for this issue)",
@@ -735,14 +756,17 @@ func (s *APIServer) GetPatientRecords(w http.ResponseWriter, r *http.Request) er
 			"message": "Could not fetch Records",
 		})
 	}
-
-	// Notify user via email
 	healthcareId, ok := r.Context().Value(contextKeyHealthCareID).(string)
 	if !ok {
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"message": "StatusUnauthorized"})
 	}
+	// healthcare_name
+	healthcare_name, ok := r.Context().Value(contextKeyHealthCareName).(string)
+	if !ok {
+		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "healthcare_name not found in token"})
+	}
 
-	s.store.Push_logs("hip:patient_record_viewed", nil, nil, health_id, healthcareId)
+	s.store.Push_logs("hip:patient_record_viewed", nil, nil, health_id, healthcare_name, healthcareId)
 
 	// counters (Will be removed soon)
 	// err = s.store.Push_counters("hip:recordsviewed_counter", healthcareId)
@@ -767,9 +791,15 @@ func (s *APIServer) UpdatePatientBioData(w http.ResponseWriter, r *http.Request)
 			"error": r.Method + " method not allowed",
 		})
 	}
-	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(string)
+	// healthcare_name
+	healthcareId, ok := r.Context().Value(contextKeyHealthCareID).(string)
 	if !ok {
-		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
+		return writeJSON(w, http.StatusUnauthorized, map[string]string{"message": "StatusUnauthorized"})
+	}
+	// healthcare_name
+	healthcare_name, ok := r.Context().Value(contextKeyHealthCareName).(string)
+	if !ok {
+		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "healthcare_name not found in token"})
 	}
 	healthID := r.URL.Query().Get("healthID")
 	if healthID == "" {
@@ -793,7 +823,8 @@ func (s *APIServer) UpdatePatientBioData(w http.ResponseWriter, r *http.Request)
 		})
 	}
 	// Get HealthCareId and update the patient
-	s.store.Push_logs("hip:patient_biodata_updated", updatedPatient.FirstName, updatedPatient.Email, updatedPatient.HealthID, healthcareID)
+	// push the logs into queue
+	s.store.Push_logs("hip:patient_biodata_updated", updatedPatient.FirstName, updatedPatient.Email, updatedPatient.HealthID, healthcare_name, healthcareId)
 
 	return writeJSON(w, http.StatusAccepted, map[string]interface{}{
 		"updated_details": updatedPatient,

@@ -7,7 +7,7 @@ import (
 )
 
 // Important all COUNTERS, LOGS, EMAILS, ANALYTICS will be collected from here!!
-func (c *Rabbitmq) Push_logs(category, name, email, healthId, healthcareId interface{}) error {
+func (c *Rabbitmq) Push_logs(category, name, email, healthId, healthcarename, healthcare_id interface{}) error {
 	notificationQueue, err := c.ch.QueueDeclare(
 		"hip:logs", // queue name
 		false,      // durable
@@ -24,11 +24,12 @@ func (c *Rabbitmq) Push_logs(category, name, email, healthId, healthcareId inter
 	switch category {
 	case "hip:account_created":
 		body = map[string]interface{}{
-			"hip_name":      name,
-			"category":      category,
-			"hip_email":     email,
-			"hip_ipaddress": healthId,
-			"healthcareId":  healthcareId,
+			"hip_name":        name,
+			"category":        category,
+			"hip_email":       email,
+			"hip_ipaddress":   healthId,
+			"healthcareId":    healthcare_id,
+			"healthcare_name": healthcarename,
 		}
 	case "hip:account_login":
 		body = map[string]interface{}{
@@ -36,7 +37,8 @@ func (c *Rabbitmq) Push_logs(category, name, email, healthId, healthcareId inter
 			"category":      category,
 			"hip_ipaddress": healthId,
 			"hip_email":     email,
-			"healthcareId":  healthcareId,
+			"healthcareId":    healthcare_id,
+			"healthcare_name": healthcarename,
 		}
 	case "hip:patient_record_created":
 		body = map[string]interface{}{
@@ -44,15 +46,17 @@ func (c *Rabbitmq) Push_logs(category, name, email, healthId, healthcareId inter
 			// "email":        email,
 			"category":     category,
 			"healthId":     healthId,
-			"healthcareId": healthcareId,
+			"healthcareId":    healthcare_id,
+			"healthcare_name": healthcarename,
 		}
 	case "hip:patient_record_viewed":
 		body = map[string]interface{}{
 			// "patient_name":  name,
 			// "patient_email": email,
-			"category":     category,
-			"healthId":     healthId,
-			"healthcareId": healthcareId,
+			"category":        category,
+			"healthId":        healthId,
+			"healthcareId":    healthcare_id,
+			"healthcare_name": healthcarename,
 		}
 	case "hip:appointment_confirm":
 		body = map[string]interface{}{
@@ -60,7 +64,8 @@ func (c *Rabbitmq) Push_logs(category, name, email, healthId, healthcareId inter
 			"category":     category,
 			"email":        email,
 			"healthId":     healthId,
-			"healthcareId": healthcareId,
+			"healthcareId":    healthcare_id,
+			"healthcare_name": healthcarename,
 		}
 	case "hip:patient_biodata_created":
 		body = map[string]interface{}{
@@ -68,30 +73,34 @@ func (c *Rabbitmq) Push_logs(category, name, email, healthId, healthcareId inter
 			"patient_email": email,
 			"category":      category,
 			"healthId":      healthId,
-			"healthcare_id": healthcareId,
+			"healthcareId":    healthcare_id,
+			"healthcare_name": healthcarename,
 		}
 	case "hip:patient_biodata_viewed":
 		body = map[string]interface{}{
-			// "name":         name,
-			// "email":        email,
-			"category":     category,
-			"healthId":     healthId,
-			"healthcareId": healthcareId,
+			"patient_name":    name,
+			"email":           email,
+			"category":        category,
+			"healthId":        healthId,
+			"healthcareId":    healthcare_id,
+			"healthcare_name": healthcarename,
 		}
 	case "hip:patient_biodata_updated":
 		body = map[string]interface{}{
-			"patient_name":  name,
-			"category":      category,
-			"patient_email": email,
-			"healthId":      healthId,
-			"healthcareId":  healthcareId,
+			"patient_name":    name,
+			"category":        category,
+			"patient_email":   email,
+			"healthId":        healthId,
+			"healthcareId":    healthcare_id,
+			"healthcare_name": healthcarename,
 		}
 	case "hip:delete_account":
 		body = map[string]interface{}{
 			"hip_name":     name,
 			"category":     category,
 			"hip_email":    email,
-			"healthcareId": healthcareId,
+			"healthcareId":    healthcare_id,
+			"healthcare_name": healthcarename,
 		}
 	default:
 		body = map[string]interface{}{

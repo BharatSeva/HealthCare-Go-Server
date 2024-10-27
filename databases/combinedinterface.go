@@ -132,8 +132,8 @@ func (s *CombinedStore) CreateHealthcare_details(healthcare_info *HIPInfo) (*HIP
 func (s *CombinedStore) Push_counters(category, healthcare_id string) error {
 	return s.rabbitmq.Push_counters(category, healthcare_id)
 }
-func (s *CombinedStore) Push_logs(category, name, email, healthcare_id, health_id interface{}) error {
-	return s.rabbitmq.Push_logs(category, name, email, healthcare_id, health_id)
+func (s *CombinedStore) Push_logs(category, name, email, health_id, healthcare_name, healthcare_id interface{}) error {
+	return s.rabbitmq.Push_logs(category, name, email, health_id, healthcare_name, healthcare_id)
 }
 func (s *CombinedStore) Push_appointment(category string) error {
 	return s.rabbitmq.Push_appointment(category)
