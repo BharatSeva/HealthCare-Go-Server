@@ -421,7 +421,7 @@ func (s *APIServer) DeleteAccount(w http.ResponseWriter, r *http.Request) error 
 	}
 
 	// Send email to user
-	err = s.store.Push_logs("hip:delete_account", healthcare_name, email_healthcareID, nil,healthcare_name, healthcareID)
+	err = s.store.Push_logs("hip:delete_account", healthcare_name, email_healthcareID, nil, healthcare_name, healthcareID)
 	if err != nil {
 		return writeJSON(w, http.StatusNotImplemented, map[string]interface{}{
 			"error": err.Error(),
@@ -559,15 +559,16 @@ func (s *APIServer) GetpatientBioData(w http.ResponseWriter, r *http.Request) er
 
 	patientDetails, err := s.store.GetPatient_bioData(healthID)
 	if err != nil {
-		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
-			"error": "something went wrong from our side :(",
+		return writeJSON(w, http.StatusNotFound, map[string]interface{}{
+			"message": "patient not found :(",
 		})
 	}
 	// Notify user via email
 	err = s.store.Push_logs("hip:patient_biodata_viewed", patientDetails.FirstName, patientDetails.Email, patientDetails.HealthID, healthcare_name, healthcareID)
 	if err != nil {
 		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
-			"error": "something went wrong from our side :(",
+			"err":     err.Error(),
+			"message": "something went wrong from our side :(",
 		})
 	}
 	// counters
@@ -674,7 +675,6 @@ func (s *APIServer) CreatepatientRecords(w http.ResponseWriter, r *http.Request)
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "healthcare_name not found in token"})
 	}
 
-
 	// assign healthcareId
 	patientrecords.Createdby_ = healthcareId
 
@@ -753,7 +753,7 @@ func (s *APIServer) GetPatientRecords(w http.ResponseWriter, r *http.Request) er
 	patientRecords, err := s.store.GetPatientRecords(health_id, list)
 	if err != nil {
 		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
-			"message": "Could not fetch Records",
+			"message": "patient not found :(",
 		})
 	}
 	healthcareId, ok := r.Context().Value(contextKeyHealthCareID).(string)
