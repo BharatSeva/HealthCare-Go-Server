@@ -5,6 +5,8 @@ import (
 	"time"
 	mq "vaibhavyadav-dev/healthcareServer/rabbitmq"
 	rd "vaibhavyadav-dev/healthcareServer/redis"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type CombinedStore struct {
@@ -81,6 +83,10 @@ func (s *CombinedStore) GetTotalRequestCount(healthcare_id string) (int, error) 
 // mongodb methods goes here.....
 func (s *CombinedStore) GetAppointments(id string, list int) ([]*Appointments, error) {
 	return s.mongodb.GetAppointments(id, list)
+}
+
+func (s *CombinedStore) SetAppointments(healthcare_id, health_id, status string, id primitive.ObjectID)(*Appointments, error){
+	return s.mongodb.SetAppointments(healthcare_id, health_id, status, id)
 }
 
 func (s *CombinedStore) CreatePatient_bioData(id string, details *PatientDetails) (*PatientDetails, error) {

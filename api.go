@@ -16,6 +16,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -92,6 +93,7 @@ type Store interface {
 	/////////////////////////////////////////////////////////////////////////////
 	// MongoDB methods goes here...
 	GetAppointments(string, int) ([]*mod.Appointments, error)
+	SetAppointments(string, string, string, primitive.ObjectID) (*mod.Appointments, error)
 	CreatePatient_bioData(string, *mod.PatientDetails) (*mod.PatientDetails, error)
 	GetPatient_bioData(string) (*mod.PatientDetails, error)
 	CreateHealthcare_details(*mod.HIPInfo) (*mod.HIPInfo, error)
@@ -134,8 +136,8 @@ func NewAPIServer(listen string, store Store) *APIServer {
 
 func (s *APIServer) Run() {
 	router := mux.NewRouter()
-	router.HandleFunc("/api/v1/healthcareauth/register", (makeHTTPHandlerFunc(s.SignUp)))
-	router.HandleFunc("/api/v1/healthcareauth/login", (makeHTTPHandlerFunc(s.LoginUser)))
+	router.HandleFunc("/api/v1/healthcare/auth/register", (makeHTTPHandlerFunc(s.SignUp)))
+	router.HandleFunc("/api/v1/healthcare/auth/login", (makeHTTPHandlerFunc(s.LoginUser)))
 
 	// this one will serve from postgres
 	router.HandleFunc("/api/v1/healthcare/getpreferance", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.GetPreferance))))
@@ -143,7 +145,8 @@ func (s *APIServer) Run() {
 	router.HandleFunc("/api/v1/healthcare/deleteaccount", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.DeleteAccount))))
 
 	// this is will server from mongodb
-	router.HandleFunc("/api/v1/healthcare/getappointments", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.GetAppointments))))
+	router.HandleFunc("/api/v1/healthcare/appointments/get", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.GetAppointments))))
+	router.HandleFunc("/api/v1/healthcare/appointments/set", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.SetAppointments))))
 	router.HandleFunc("/api/v1/healthcare/createpatientbiodata", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.CreatePatient_bioData))))
 	router.HandleFunc("/api/v1/healthcare/getpatientbiodata", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.GetpatientBioData))))
 	router.HandleFunc("/api/v1/healthcare/details", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.GetHealthcare_details))))
@@ -464,7 +467,41 @@ func (s *APIServer) GetAppointments(w http.ResponseWriter, r *http.Request) erro
 	}
 	return writeJSON(w, http.StatusOK, map[string]interface{}{
 		"appointments": appointments,
-		"pagination":   list,
+		"fetched":      len(appointments),
+	})
+}
+
+// Set status of appointments
+func (s *APIServer) SetAppointments(w http.ResponseWriter, r *http.Request) error {
+	if r.Method != "POST" {
+		return fmt.Errorf("%s method is not allowed", r.Method)
+	}
+	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(string)
+	if !ok {
+		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
+	}
+	update := &mod.UpdateAppointment{}
+	err := json.NewDecoder(r.Body).Decode(&update)
+	if err != nil {
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"message": "Internal Server Error: could not process data",
+		})
+	}
+	if update.Status != "Confirmed" && update.Status != "Rejected" && update.Status != "Pending" && update.Status != "Not Available" {
+		return writeJSON(w, http.StatusNotAcceptable, map[string]interface{}{
+			"message": "Invalid status. Status must be one of [\"Pending\", \"Confirmed\", \"Rejected\", \"Not Available\"]",
+		})
+	}
+
+	appointments, err := s.store.SetAppointments(healthcareID, update.HealthID, update.Status, (primitive.ObjectID)(update.ID))
+	if err != nil {
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": err.Error(),
+		})
+	}
+	return writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status":       "Updated",
+		"appointments": appointments,
 	})
 }
 
@@ -493,6 +530,7 @@ func (s *APIServer) CreatePatient_bioData(w http.ResponseWriter, r *http.Request
 		return err
 	}
 
+	// store into mongoDB directly
 	patientDetails, err = s.store.CreatePatient_bioData(healthcareID, patientDetails)
 	if err != nil {
 		return writeJSON(w, http.StatusNotAcceptable, map[string]interface{}{
@@ -529,6 +567,7 @@ func (s *APIServer) CreatePatient_bioData(w http.ResponseWriter, r *http.Request
 	return writeJSON(w, http.StatusCreated, map[string]interface{}{
 		"message":          "data has been successfully created!",
 		"status":           "created",
+		"email":            patientDetails.Email,
 		"patient_healthID": patientDetails.HealthID,
 		"Full name":        patientDetails.FirstName + " " + patientDetails.MiddleName + " " + patientDetails.LastName,
 	})

@@ -38,9 +38,9 @@ func (s *PostgresStore) CreateTable() error {
 			healthcare_name TEXT NOT NULL UNIQUE,
 			email VARCHAR(100) NOT NULL UNIQUE,
 			availability VARCHAR(15) NOT NULL,
-			total_facilities INTEGER NOT NULL,
+			total_facilities INTEGER NOT NULL, 
 			total_mbbs_doc INTEGER NOT NULL,
-			total_worker INTEGER NOT NULL,
+			total_worker INTEGER NOT NULL, 
 			no_of_beds INTEGER NOT NULL,
 			date_of_registration TIMESTAMP DEFAULT NOW(),
 			password TEXT NOT NULL,
@@ -51,7 +51,7 @@ func (s *PostgresStore) CreateTable() error {
 			landmark VARCHAR(45) NOT NULL
 		);`,
 
-		`CREATE TABLE IF NOT EXISTS HealthCare_Logs (
+		`CREATE TABLE IF NOT EXISTS HealthCare_pref (
 			Id SERIAL PRIMARY KEY,
 			healthcare_id TEXT NOT NULL,
 			scheduled_deletion VARCHAR(20),
@@ -97,7 +97,7 @@ func (s *PostgresStore) SignUpAccount(hip *HIPInfo) (int64, error) {
 		state, city, landmark)
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING healthcare_id`
 
-	query1 := `INSERT INTO HealthCare_Logs (healthcare_id, scheduled_deletion, biodata_viewed_count, 
+	query1 := `INSERT INTO HealthCare_pref (healthcare_id, scheduled_deletion, biodata_viewed_count, 
 			  healthID_created_count, account_locked, records_created_count, recordsviewed_count, 
 			  totalRequest_count, appointmentFee, isAvailable)
 	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
@@ -150,7 +150,7 @@ func (s *PostgresStore) ChangePreferance(healthcareId string, preferance map[str
 	}
 	for key, value := range preferance {
 		if key == "scheduled_deletion" && value != "" {
-			_, err := s.db.Exec("UPDATE HealthCare_Logs set scheduled_deletion = $1 WHERE healthcare_id = $2", value, healthcareId)
+			_, err := s.db.Exec("UPDATE HealthCare_pref set scheduled_deletion = $1 WHERE healthcare_id = $2", value, healthcareId)
 			if err != nil {
 				return err
 			}
@@ -158,7 +158,7 @@ func (s *PostgresStore) ChangePreferance(healthcareId string, preferance map[str
 	}
 	for key, value := range preferance {
 		if key == "isAvailable" && value != "" {
-			_, err := s.db.Exec("UPDATE HealthCare_Logs set isAvailable = $1 WHERE healthcare_id = $2", value, healthcareId)
+			_, err := s.db.Exec("UPDATE HealthCare_pref set isAvailable = $1 WHERE healthcare_id = $2", value, healthcareId)
 			if err != nil {
 				return err
 			}
@@ -171,14 +171,14 @@ func (s *PostgresStore) GetPreferance(healthcareId string) (*ChangePreferance, e
 	query := `
 		SELECT 
 			HIP_TABLE.email, 
-			HealthCare_Logs.isavailable, 
-			HealthCare_Logs.scheduled_deletion 
+			HealthCare_pref.isavailable, 
+			HealthCare_pref.scheduled_deletion 
 		FROM 
 			HIP_TABLE 
 		INNER JOIN 
-			HealthCare_Logs 
+		HealthCare_pref 
 		ON 
-			HIP_TABLE.healthcare_id = HealthCare_Logs.healthcare_id 
+			HIP_TABLE.healthcare_id = HealthCare_pref.healthcare_id 
 		WHERE 
 			HIP_TABLE.healthcare_id = $1;
 	`
@@ -195,7 +195,7 @@ func (s *PostgresStore) GetTotalRequestCount(healthcare_id string) (int, error) 
 	var count int
 	query := `
 		SELECT totalrequest_count 
-		FROM HealthCare_Logs 
+		FROM HealthCare_pref 
 		WHERE healthcare_id = $1;
 	`
 	// Execute the query and scan the result into the 'count' variable
@@ -214,8 +214,6 @@ func checkEmailExists(db *sql.DB, email string) (bool, error) {
 	err := db.QueryRow(query, email).Scan(&exists)
 	return exists, err
 }
-
-
 
 // func (s *PostgresStore) Recordsviewed_counter(healthcare_id string) error {
 // 	query := `

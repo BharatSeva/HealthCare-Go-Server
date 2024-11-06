@@ -69,6 +69,7 @@ func (m *MongoStore) Init() error {
 	return Seed_createUniqueHealthInfo(coll)
 }
 
+// fetch appointments
 func (m *MongoStore) GetAppointments(healthcareID string, list int) ([]*Appointments, error) {
 	coll := m.db.Database(m.database).Collection("appointments")
 
@@ -85,6 +86,44 @@ func (m *MongoStore) GetAppointments(healthcareID string, list int) ([]*Appointm
 		return nil, fmt.Errorf("error decoding appointments: %w", err)
 	}
 	return appointments, nil
+}
+
+// fetch appointments
+func (m *MongoStore) SetAppointments(healthcareID, healthId, status string, id primitive.ObjectID) (*Appointments, error) {
+	coll := m.db.Database(m.database).Collection("appointments")
+
+	filter := bson.D{{Key: "healthcare_id", Value: healthcareID},
+		{Key: "health_id", Value: healthId},
+		{Key: "_id", Value: id}}
+
+	update := bson.D{
+		{Key: "$set", Value: bson.D{
+			{Key: "status", Value: status},
+		}},
+		{Key: "$currentDate", Value: bson.D{
+			{Key: "updated_at", Value: true},
+		}},
+	}
+
+	result, err := coll.UpdateOne(context.Background(), filter, update)
+	if err != nil {
+		return nil, err
+	}
+	if result.MatchedCount == 0 {
+		return nil, fmt.Errorf("no appointment found with id %s", id)
+	}
+	if result.ModifiedCount == 0 {
+		return nil, fmt.Errorf("no fields were updated")
+	}
+
+	// Retrieve and return the updated patient details
+	var appointments Appointments
+	err = coll.FindOne(context.Background(), filter).Decode(&appointments)
+	if err != nil {
+		return nil, err
+	}
+
+	return &appointments, nil
 }
 
 func (m *MongoStore) CreatePatient_bioData(healthcareID string, patientDetails *PatientDetails) (*PatientDetails, error) {
@@ -194,7 +233,6 @@ func (m *MongoStore) UpdatePatientBioData(healthID string, updates map[string]in
 			cleanedUpdates[key] = value
 		}
 	}
-	
 
 	if len(cleanedUpdates) == 0 {
 		return nil, fmt.Errorf("no valid fields to update")

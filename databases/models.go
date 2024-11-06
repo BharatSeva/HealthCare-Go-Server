@@ -88,16 +88,22 @@ func SignUpAccount(hip *HIPInfo) (*HIPInfo, error) {
 }
 
 type Appointments struct {
-	HealthcareID    string `json:"healthcare_id" bson:"healthcare_id" validate:"required"`
-	AppointmentDate string `json:"appointment_date" bson:"appointment_date"`
-	AppointmentTime string `json:"appointment_time" bson:"appointment_time"`
-	HealthID        string `json:"health_id" bson:"health_id" validate:"required,min=10,max=10"`
-	Department      string `json:"department" bson:"department"`
-	Note            string `json:"note" bson:"note" validate:"max=500"`
-	FirstName       string `json:"fname" bson:"fname" validate:"required,min=3,max=50"`
-	MiddleName      string `json:"middlename" bson:"middlename" validate:"max=50"`
-	LastName        string `json:"lname" bson:"lname" validate:"required,min=1,max=50"`
-	HealthcareName  string `json:"name" bson:"name" validate:"required,min=5,max=50"`
+	ID              primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	HealthcareID    string             `json:"-" bson:"healthcare_id" validate:"required"`
+	AppointmentDate string             `json:"appointment_date" bson:"appointment_date"`
+	AppointmentTime string             `json:"appointment_time" bson:"appointment_time"`
+	HealthID        string             `json:"health_id" bson:"health_id" validate:"required,min=10,max=10"`
+	Department      string             `json:"department" bson:"department"`
+	Note            string             `json:"note" bson:"note" validate:"max=500"`
+	FullName        string             `json:"fullname" bson:"fullname" validate:"required,min=3,max=50"`
+	Status          string             `json:"status" bson:"status" validate:"required"`
+	HealthcareName  string             `json:"-" bson:"-" validate:"required,min=5,max=50"`
+}
+
+type UpdateAppointment struct {
+	ID       primitive.ObjectID `bson:"_id, omitempty" json:"id"`
+	HealthID string             `json:"health_id" bson:"health_id" validate:"required,min=10,max=10"`
+	Status   string             `json:"status" bson:"status" validate:"required"`
 }
 
 type PatientDetails struct {
@@ -166,7 +172,7 @@ func CreatePatient_bioData(HealthcareID string, patient *PatientDetails) (*Patie
 type PatientRecords struct {
 	ID              primitive.ObjectID `bson:"_id,omitempty" json:"-"`                              // MongoDB ID field
 	Issue           string             `bson:"issue" json:"issue" validate:"required,min=3,max=20"` // Required, min 3, max 20 characters
-	Createdby_      string             `bson:"Createdby_" json:"Createdby_" validate:"required"`
+	Createdby_      string             `bson:"createdby_" json:"createdby_" validate:"required"`
 	Description     string             `bson:"description" json:"description" validate:"required,min=3,max=50"` // Required, min 3, max 50 characters
 	HealthID        string             `bson:"health_id" json:"health_id" validate:"required"`
 	MedicalSeverity string             `bson:"medical_severity" json:"medical_severity" validate:"required"`
