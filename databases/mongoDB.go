@@ -91,11 +91,11 @@ func (m *MongoStore) GetAppointments(healthcareID string, list int) ([]*Appointm
 // fetch appointments
 func (m *MongoStore) SetAppointments(healthcareID, healthId, status string, id primitive.ObjectID) (*Appointments, error) {
 	coll := m.db.Database(m.database).Collection("appointments")
-
-	filter := bson.D{{Key: "healthcare_id", Value: healthcareID},
+	filter := bson.D{
+		{Key: "healthcare_id", Value: healthcareID},
 		{Key: "health_id", Value: healthId},
-		{Key: "_id", Value: id}}
-
+		{Key: "_id", Value: id},
+	}
 	update := bson.D{
 		{Key: "$set", Value: bson.D{
 			{Key: "status", Value: status},
@@ -104,25 +104,21 @@ func (m *MongoStore) SetAppointments(healthcareID, healthId, status string, id p
 			{Key: "updated_at", Value: true},
 		}},
 	}
-
 	result, err := coll.UpdateOne(context.Background(), filter, update)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error updating appointment: %w", err)
 	}
 	if result.MatchedCount == 0 {
-		return nil, fmt.Errorf("no appointment found with id %s", id)
+		return nil, fmt.Errorf("no appointment found with healthcareID %s, healthId %s, and id %s", healthcareID, healthId, id.Hex())
 	}
 	if result.ModifiedCount == 0 {
-		return nil, fmt.Errorf("no fields were updated")
+		return nil, fmt.Errorf("no fields were updated for appointment with id %s", id.Hex())
 	}
-
-	// Retrieve and return the updated patient details
 	var appointments Appointments
 	err = coll.FindOne(context.Background(), filter).Decode(&appointments)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error fetching updated appointment: %w", err)
 	}
-
 	return &appointments, nil
 }
 
@@ -208,9 +204,14 @@ func (m *MongoStore) CreatepatientRecords(healthcare_id string, patientrecords *
 	return patientrecords, nil
 }
 
-func (m *MongoStore) GetPatientRecords(health_id string, list int) (*[]PatientRecords, error) {
+func (m *MongoStore) GetPatientRecords(health_id, severity string, list int) (*[]PatientRecords, error) {
 	coll := m.db.Database(m.database).Collection("patient_records")
 	filter := bson.D{{Key: "health_id", Value: health_id}}
+
+	if severity != "" {
+		filter = append(filter, bson.E{Key: "medical_severity", Value: severity})
+	}
+
 	findOptions := options.Find().SetLimit(int64(list))
 	cursor, err := coll.Find(context.TODO(), filter, findOptions)
 	if err != nil {

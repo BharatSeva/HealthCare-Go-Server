@@ -78,14 +78,12 @@ func (s *CombinedStore) GetTotalRequestCount(healthcare_id string) (int, error) 
 	return s.postgres.GetTotalRequestCount(healthcare_id)
 }
 
-
-
 // mongodb methods goes here.....
 func (s *CombinedStore) GetAppointments(id string, list int) ([]*Appointments, error) {
 	return s.mongodb.GetAppointments(id, list)
 }
 
-func (s *CombinedStore) SetAppointments(healthcare_id, health_id, status string, id primitive.ObjectID)(*Appointments, error){
+func (s *CombinedStore) SetAppointments(healthcare_id, health_id, status string, id primitive.ObjectID) (*Appointments, error) {
 	return s.mongodb.SetAppointments(healthcare_id, health_id, status, id)
 }
 
@@ -105,8 +103,8 @@ func (s *CombinedStore) CreatepatientRecords(healthID string, records *PatientRe
 	return s.mongodb.CreatepatientRecords(healthID, records)
 }
 
-func (s *CombinedStore) GetPatientRecords(healthID string, limit int) (*[]PatientRecords, error) {
-	return s.mongodb.GetPatientRecords(healthID, limit)
+func (s *CombinedStore) GetPatientRecords(healthID, severity string, limit int) (*[]PatientRecords, error) {
+	return s.mongodb.GetPatientRecords(healthID, severity, limit)
 }
 
 func (s *CombinedStore) UpdatePatientBioData(healthID string, updates map[string]interface{}) (*PatientDetails, error) {
@@ -141,8 +139,8 @@ func (s *CombinedStore) Push_counters(category, healthcare_id string) error {
 func (s *CombinedStore) Push_logs(category, name, email, health_id, healthcare_name, healthcare_id interface{}) error {
 	return s.rabbitmq.Push_logs(category, name, email, health_id, healthcare_name, healthcare_id)
 }
-func (s *CombinedStore) Push_appointment(category string) error {
-	return s.rabbitmq.Push_appointment(category)
+func (s *CombinedStore) Push_update_appointment(appointment map[string]interface{}) error {
+	return s.rabbitmq.Push_update_appointment(appointment)
 }
 
 func (s *CombinedStore) Push_patient_records(record map[string]interface{}) error {

@@ -35,7 +35,7 @@
 						}
 					}
 				},
-				"url": "http://localhost:3000/api/v1/healthcareauth/register"
+				"url": "http://localhost/api/v1/healthcare/auth/register"
 			},
 			"response": [
 				{
@@ -84,8 +84,15 @@
 					"script": {
 						"exec": [
 							"var jsonData = pm.response.json();\r",
+							"\r",
 							"var token = jsonData.token;\r",
-							"pm.collectionVariables.set(\"HIP_TOKEN\", token);"
+							"pm.collectionVariables.set(\"HIP_TOKEN\", token);\r",
+							"\r",
+							"var healthcare_id = jsonData.healthcare_id;\r",
+							"pm.globals.set(\"healthcare_id\", healthcare_id)\r",
+							"\r",
+							"var healthcare_name = jsonData.healthcare_name\r",
+							"pm.globals.set(\"healthcare_name\", healthcare_name)"
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -114,7 +121,7 @@
 						}
 					}
 				},
-				"url": "http://localhost:3000/api/v1/healthcareauth/login"
+				"url": "http://localhost/api/v1/healthcare/auth/login"
 			},
 			"response": [
 				{
@@ -175,7 +182,7 @@
 						}
 					}
 				},
-				"url": "http://localhost:3000/api/v1/healthcare/changepreferance"
+				"url": "http://localhost/api/v1/healthcare/changepreferance"
 			},
 			"response": [
 				{
@@ -228,12 +235,11 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "http://localhost:3000/api/v1/healthcare/getpreferance?cache=false",
+					"raw": "http://localhost/api/v1/healthcare/getpreferance?cache=false",
 					"protocol": "http",
 					"host": [
 						"localhost"
 					],
-					"port": "3000",
 					"path": [
 						"api",
 						"v1",
@@ -326,6 +332,24 @@
 		},
 		{
 			"name": "Get Appointments",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var jsonData = pm.response.json();\r",
+							"var appointmentlength = jsonData.appointments.length\r",
+							"const randomNumber = Math.floor(Math.random() * appointmentlength);\r",
+							"\r",
+							"var appointment_id = jsonData.appointments[randomNumber].id\r",
+							"pm.collectionVariables.set(\"app_id\", appointment_id);\r",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
 			"request": {
 				"auth": {
 					"type": "bearer",
@@ -336,22 +360,22 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "http://localhost:3000/api/v1/healthcare/getappointments?list=2",
+					"raw": "http://localhost/api/v1/healthcare/appointments/get?list=10",
 					"protocol": "http",
 					"host": [
 						"localhost"
 					],
-					"port": "3000",
 					"path": [
 						"api",
 						"v1",
 						"healthcare",
-						"getappointments"
+						"appointments",
+						"get"
 					],
 					"query": [
 						{
 							"key": "list",
-							"value": "2"
+							"value": "10"
 						}
 					]
 				}
@@ -456,9 +480,14 @@
 					"script": {
 						"exec": [
 							"var jsonData = pm.response.json();\r",
-							"var patient_healthID = jsonData.patient_healthID;\r",
 							"\r",
-							"pm.collectionVariables.set(\"healthID\", patient_healthID);"
+							"var patient_healthID = jsonData.patient_healthID;\r",
+							"pm.globals.set(\"health_id\", patient_healthID);\r",
+							"\r",
+							"\r",
+							"var patient_email = jsonData.email;\r",
+							"pm.globals.set(\"patient_email\", patient_email)\r",
+							""
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -476,14 +505,14 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\r\n    \"fname\": \"{{$randomFullName}}\",\r\n    \"middlename\": \"Kumar\",\r\n    \"lname\": \"{{$randomLastName}}\",\r\n    \"sex\": \"Male\",\r\n    \"dob\": \"DOMD\",\r\n    \"bloodgrp\": \"N/A\",\r\n    \"bmi\": \"N/A\",\r\n    \"marriage_status\": \"Single\",\r\n    \"weight\": \"N/A\",\r\n    \"email\": \"{{$randomEmail}}\",\r\n    \"mobilenumber\": \"{{$randomPhoneNumber}}\",\r\n    \"aadhar_number\": \"123\",\r\n    \"primary_location\": \"123\",\r\n    \"sibling\": \"N/A\",\r\n    \"twin\": \"No\",\r\n    \"fathername\": \"N/A\",\r\n    \"mothername\": \"N/A\",\r\n    \"emergencynumber\": \"2021071042\",\r\n    \"address\": {\r\n        \"country\": \"{{$randomCountry}}\",\r\n        \"state\": \"{{$randomStreetName}}\",\r\n        \"city\": \"{{$randomCity}}\",\r\n        \"landmark\": \"{{$randomStreetAddress}}\"\r\n    }\r\n}",
+					"raw": "{\r\n    \"fname\": \"{{$randomFullName}}\",\r\n    \"middlename\": \"Kumar\",\r\n    \"lname\": \"{{$randomLastName}}\",\r\n    \"sex\": \"Male\",\r\n    \"dob\": \"{{$randomDateRecent}}\",\r\n    \"bloodgrp\": \"{{$randomAlphaNumeric}}\",\r\n    \"bmi\": \"{{$randomAlphaNumeric}}\",\r\n    \"marriage_status\": \"Single\",\r\n    \"weight\": \"{{$randomPhoneNumberExt}}\",\r\n    \"email\": \"{{$randomEmail}}\",\r\n    \"mobilenumber\": \"{{$randomPhoneNumber}}\",\r\n    \"aadhar_number\": \"{{$randomPhoneNumber}}\",\r\n    \"primary_location\": \"{{$randomLocale}}\",\r\n    \"sibling\": \"{{$randomBoolean}}\",\r\n    \"twin\": \"{{$randomBoolean}}\",\r\n    \"fathername\": \"{{$randomFullName}}\",\r\n    \"mothername\": \"{{$randomUserName}}\",\r\n    \"emergencynumber\": \"{{$randomPhoneNumber}}\",\r\n    \"address\": {\r\n        \"country\": \"{{$randomCountry}}\",\r\n        \"state\": \"{{$randomStreetName}}\",\r\n        \"city\": \"{{$randomCity}}\",\r\n        \"landmark\": \"{{$randomStreetAddress}}\"\r\n    }\r\n}",
 					"options": {
 						"raw": {
 							"language": "json"
 						}
 					}
 				},
-				"url": "http://localhost:3000/api/v1/healthcare/createpatientbiodata"
+				"url": "http://localhost/api/v1/healthcare/createpatientbiodata"
 			},
 			"response": [
 				{
@@ -536,12 +565,11 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "http://localhost:3000/api/v1/healthcare/getpatientbiodata?healthID={{healthID}}",
+					"raw": "http://localhost/api/v1/healthcare/getpatientbiodata?healthID={{health_id}}",
 					"protocol": "http",
 					"host": [
 						"localhost"
 					],
-					"port": "3000",
 					"path": [
 						"api",
 						"v1",
@@ -551,7 +579,7 @@
 					"query": [
 						{
 							"key": "healthID",
-							"value": "{{healthID}}"
+							"value": "{{health_id}}"
 						}
 					]
 				}
@@ -617,12 +645,11 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "http://localhost:3000/api/v1/healthcare/details?cache=true",
+					"raw": "http://localhost/api/v1/healthcare/details?cache=true",
 					"protocol": "http",
 					"host": [
 						"localhost"
 					],
-					"port": "3000",
 					"path": [
 						"api",
 						"v1",
@@ -745,14 +772,14 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\r\n    \"issue\":\"Golang issue\",\r\n    \"description\":\"Golang description\",\r\n    \"health_id\":\"2021071042\",\r\n    \"medical_severity\":\"golang medical medical_severity\"\r\n}",
+					"raw": "{\r\n    \"issue\":\"{{$randomCatchPhraseNoun}}\",\r\n    \"description\":\"{{$randomJobDescriptor}}\",\r\n    \"health_id\":\"{{health_id}}\",\r\n    \"medical_severity\":\"High\"\r\n}",
 					"options": {
 						"raw": {
 							"language": "json"
 						}
 					}
 				},
-				"url": "http://localhost:3000/api/v1/healthcare/createrecords"
+				"url": "http://localhost/api/v1/healthcare/createrecords"
 			},
 			"response": [
 				{
@@ -805,12 +832,11 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "http://localhost:3000/api/v1/healthcare/getpatientrecords?healthID={{healthID}}&list=2",
+					"raw": "http://localhost/api/v1/healthcare/getpatientrecords?healthID={{health_id}}&list=5&severity=High",
 					"protocol": "http",
 					"host": [
 						"localhost"
 					],
-					"port": "3000",
 					"path": [
 						"api",
 						"v1",
@@ -820,11 +846,15 @@
 					"query": [
 						{
 							"key": "healthID",
-							"value": "{{healthID}}"
+							"value": "{{health_id}}"
 						},
 						{
 							"key": "list",
-							"value": "2"
+							"value": "5"
+						},
+						{
+							"key": "severity",
+							"value": "High"
 						}
 					]
 				}
@@ -895,7 +925,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\r\n    \"fname\": \"Helen of Troy\",\r\n    \"dob\": \"20/09/2001\",\r\n    \"bmi\": \"13\"\r\n}",
+					"raw": "{\r\n    \"fname\": \"{{$randomFirstName}}\",\r\n    \"dob\": \"{{$randomDatePast}}\",\r\n    \"bmi\": \"{{$randomPhoneNumberExt}}\"\r\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -903,12 +933,11 @@
 					}
 				},
 				"url": {
-					"raw": "http://localhost:3000/api/v1/healthcare/updatepatientbiodata?healthID={{healthID}}",
+					"raw": "http://localhost/api/v1/healthcare/updatepatientbiodata?healthID={{health_id}}",
 					"protocol": "http",
 					"host": [
 						"localhost"
 					],
-					"port": "3000",
 					"path": [
 						"api",
 						"v1",
@@ -918,7 +947,7 @@
 					"query": [
 						{
 							"key": "healthID",
-							"value": "{{healthID}}"
+							"value": "{{health_id}}"
 						}
 					]
 				}
@@ -980,6 +1009,176 @@
 					"body": "{\n    \"updated_details\": {\n        \"health_id\": \"HIDdf33751b-c7f5-4daf-a\",\n        \"fname\": \"Helen of Troy\",\n        \"middlename\": \"Kumar\",\n        \"lname\": \"Wolff\",\n        \"sex\": \"Male\",\n        \"healthcare_id\": \"HCID04bd4df0-060d-43d1-a\",\n        \"dob\": \"20/09/2001\",\n        \"bloodgrp\": \"N/A\",\n        \"bmi\": \"13\",\n        \"marriage_status\": \"Single\",\n        \"weight\": \"N/A\",\n        \"email\": \"Macie.Lesch@gmail.com\",\n        \"mobilenumber\": \"206-500-0372\",\n        \"aadhar_number\": \"123\",\n        \"primary_location\": \"123\",\n        \"sibling\": \"N/A\",\n        \"twin\": \"No\",\n        \"fathername\": \"N/A\",\n        \"mothername\": \"N/A\",\n        \"emergencynumber\": \"2021071042\",\n        \"created_at\": \"2024-10-26T14:42:13.726Z\",\n        \"updated_at\": \"2024-10-26T14:42:44.799Z\",\n        \"address\": {\n            \"country\": \"Israel\",\n            \"state\": \"Abel Fords\",\n            \"city\": \"New Michele\",\n            \"landmark\": \"94939 Emmy Mountain\"\n        }\n    }\n}"
 				}
 			]
+		},
+		{
+			"name": "Assign Appointment",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": {
+						"token": "{{HIP_TOKEN}}"
+					}
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"id\": \"{{app_id}}\",\r\n    \"health_id\": \"{{health_id}}\",\r\n    \"status\": \"Confirmed\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost/api/v1/healthcare/appointments/set?list=10",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"path": [
+						"api",
+						"v1",
+						"healthcare",
+						"appointments",
+						"set"
+					],
+					"query": [
+						{
+							"key": "list",
+							"value": "10"
+						}
+					]
+				}
+			},
+			"response": [
+				{
+					"name": "Assign Appointment [ ERROR ]",
+					"originalRequest": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"id\": \"672b4738b96a9b8f83fadd57\",\r\n    \"health_id\": \"{{health_id}}a\",\r\n    \"status\": \"Confirmed\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost/api/v1/healthcare/appointments/set?list=10",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"path": [
+								"api",
+								"v1",
+								"healthcare",
+								"appointments",
+								"set"
+							],
+							"query": [
+								{
+									"key": "list",
+									"value": "10"
+								}
+							]
+						}
+					},
+					"status": "Internal Server Error",
+					"code": 500,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Server",
+							"value": "nginx/1.27.2"
+						},
+						{
+							"key": "Date",
+							"value": "Wed, 06 Nov 2024 10:46:51 GMT"
+						},
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						},
+						{
+							"key": "Content-Length",
+							"value": "80"
+						},
+						{
+							"key": "Connection",
+							"value": "keep-alive"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"error\": \"no appointment found with id ObjectID(\\\"672b4738b96a9b8f83fadd57\\\")\"\n}"
+				},
+				{
+					"name": "Assign Appointment",
+					"originalRequest": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"id\": \"672b4738b96a9b8f83fadd57\",\r\n    \"health_id\": \"{{health_id}}\",\r\n    \"status\": \"Confirmed\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost/api/v1/healthcare/appointments/set?list=10",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"path": [
+								"api",
+								"v1",
+								"healthcare",
+								"appointments",
+								"set"
+							],
+							"query": [
+								{
+									"key": "list",
+									"value": "10"
+								}
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [
+						{
+							"key": "Server",
+							"value": "nginx/1.27.2"
+						},
+						{
+							"key": "Date",
+							"value": "Wed, 06 Nov 2024 10:47:10 GMT"
+						},
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						},
+						{
+							"key": "Content-Length",
+							"value": "308"
+						},
+						{
+							"key": "Connection",
+							"value": "keep-alive"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"appointments\": {\n        \"id\": \"672b4738b96a9b8f83fadd57\",\n        \"appointment_date\": \"30-02-2025\",\n        \"appointment_time\": \"10:00 AM T0 12:00 PM\",\n        \"health_id\": \"HID4acfbd3e-8e7b-4f1a-9\",\n        \"department\": \"Dentist Deparment\",\n        \"note\": \"status testing goes here...\",\n        \"fullname\": \"Tom Russel Gusikowski\",\n        \"status\": \"Confirmed\"\n    },\n    \"status\": \"Updated\"\n}"
+				}
+			]
 		}
 	],
 	"variable": [
@@ -993,6 +1192,10 @@
 		},
 		{
 			"key": "healthID",
+			"value": ""
+		},
+		{
+			"key": "app_id",
 			"value": ""
 		}
 	]

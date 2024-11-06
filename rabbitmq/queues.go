@@ -4,17 +4,18 @@ import (
 	"encoding/json"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
+	"time"
 )
 
 // Important all COUNTERS, LOGS, EMAILS, ANALYTICS will be collected from here!!
 func (c *Rabbitmq) Push_logs(category, name, email, healthId, healthcarename, healthcare_id interface{}) error {
 	notificationQueue, err := c.ch.QueueDeclare(
-		"hip:logs", // queue name
-		false,      // durable
-		false,      // delete when unused
-		false,      // exclusive
-		false,      // no-wait
-		nil,        // arguments
+		"logs", // queue name
+		false,  // durable
+		false,  // delete when unused
+		false,  // exclusive
+		false,  // no-wait
+		nil,    // arguments
 	)
 	if err != nil {
 		return err
@@ -22,85 +23,94 @@ func (c *Rabbitmq) Push_logs(category, name, email, healthId, healthcarename, he
 
 	var body interface{}
 	switch category {
-	case "hip:account_created":
+	case "hip_accountCreated":
 		body = map[string]interface{}{
 			"hip_name":        name,
+			"date":            time.Now().Format("2006-01-02 15:04:05"),
 			"category":        category,
 			"hip_email":       email,
 			"hip_ipaddress":   healthId,
-			"healthcareId":    healthcare_id,
+			"healthcare_id":   healthcare_id,
 			"healthcare_name": healthcarename,
 		}
-	case "hip:account_login":
+	case "hip_accountLogin":
 		body = map[string]interface{}{
-			"hip_name":      name,
-			"category":      category,
-			"hip_ipaddress": healthId,
-			"hip_email":     email,
-			"healthcareId":    healthcare_id,
+			"date":            time.Now().Format("2006-01-02 15:04:05"),
+			"hip_name":        name,
+			"category":        category,
+			"hip_ipaddress":   healthId,
+			"hip_email":       email,
+			"healthcare_id":   healthcare_id,
 			"healthcare_name": healthcarename,
 		}
-	case "hip:patient_record_created":
+	case "recordCreated":
 		body = map[string]interface{}{
+			"date": time.Now().Format("2006-01-02 15:04:05"),
 			// "name":         name,
 			// "email":        email,
-			"category":     category,
-			"healthId":     healthId,
-			"healthcareId":    healthcare_id,
+			"category":        category,
+			"health_id":       healthId,
+			"healthcare_id":   healthcare_id,
 			"healthcare_name": healthcarename,
 		}
-	case "hip:patient_record_viewed":
+	case "recordViewed":
 		body = map[string]interface{}{
 			// "patient_name":  name,
 			// "patient_email": email,
+			"date":            time.Now().Format("2006-01-02 15:04:05"),
 			"category":        category,
-			"healthId":        healthId,
-			"healthcareId":    healthcare_id,
+			"health_id":       healthId,
+			"healthcare_id":   healthcare_id,
 			"healthcare_name": healthcarename,
 		}
-	case "hip:appointment_confirm":
+	case "appointmentUpdate":
 		body = map[string]interface{}{
-			"name":         name,
-			"category":     category,
-			"email":        email,
-			"healthId":     healthId,
-			"healthcareId":    healthcare_id,
+			"name":            name,
+			"date":            time.Now().Format("2006-01-02 15:04:05"),
+			"category":        category,
+			"email":           email,
+			"health_id":       healthId,
+			"healthcare_id":   healthcare_id,
 			"healthcare_name": healthcarename,
 		}
-	case "hip:patient_biodata_created":
+	case "biodataCreated":
 		body = map[string]interface{}{
-			"patient_name":  name,
-			"patient_email": email,
-			"category":      category,
-			"healthId":      healthId,
-			"healthcareId":    healthcare_id,
+			"patient_name":    name,
+			"date":            time.Now().Format("2006-01-02 15:04:05"),
+			"patient_email":   email,
+			"category":        category,
+			"health_id":       healthId,
+			"healthcare_id":   healthcare_id,
 			"healthcare_name": healthcarename,
 		}
-	case "hip:patient_biodata_viewed":
+	case "biodataViewed":
 		body = map[string]interface{}{
 			"patient_name":    name,
 			"email":           email,
 			"category":        category,
-			"healthId":        healthId,
-			"healthcareId":    healthcare_id,
+			"date":            time.Now().Format("2006-01-02 15:04:05"),
+			"health_id":       healthId,
+			"healthcare_id":   healthcare_id,
 			"healthcare_name": healthcarename,
 		}
-	case "hip:patient_biodata_updated":
+	case "biodataUpdated":
 		body = map[string]interface{}{
 			"patient_name":    name,
 			"category":        category,
 			"patient_email":   email,
-			"healthId":        healthId,
-			"healthcareId":    healthcare_id,
+			"health_id":       healthId,
+			"healthcare_id":   healthcare_id,
 			"healthcare_name": healthcarename,
+			"date":            time.Now().Format("2006-01-02 15:04:05"),
 		}
-	case "hip:delete_account":
+	case "hip_deleteAccount":
 		body = map[string]interface{}{
-			"hip_name":     name,
-			"category":     category,
-			"hip_email":    email,
-			"healthcareId":    healthcare_id,
+			"hip_name":        name,
+			"category":        category,
+			"hip_email":       email,
+			"healthcare_id":   healthcare_id,
 			"healthcare_name": healthcarename,
+			"date":            time.Now().Format("2006-01-02 15:04:05"),
 		}
 	default:
 		body = map[string]interface{}{
@@ -137,7 +147,7 @@ func (c *Rabbitmq) Push_logs(category, name, email, healthId, healthcarename, he
 // patient records goes here...
 func (c *Rabbitmq) Push_patient_records(record map[string]interface{}) error {
 	notification_queue, err := c.ch.QueueDeclare(
-		"hip:patient_records", // queue name
+		"patient_records", // queue name
 		false,                 // durable
 		false,                 // delete when unused
 		false,                 // exclusive
@@ -170,29 +180,38 @@ func (c *Rabbitmq) Push_patient_records(record map[string]interface{}) error {
 	return nil
 }
 
-func (c *Rabbitmq) Push_appointment(category string) error {
+func (c *Rabbitmq) Push_update_appointment(appointment map[string]interface{}) error {
 	notification_queue, err := c.ch.QueueDeclare(
-		category, // queue name
-		false,    // durable
-		false,    // delete when unused
-		false,    // exclusive
-		false,    // no-wait
-		nil,      // arguments
+		"appointment_update", // queue name
+		false,                // durable
+		false,                // delete when unused
+		false,                // exclusive
+		false,                // no-wait
+		nil,                  // arguments
 	)
-	failOnError(err, "Failed to declare a queue")
-	body := "This is notification"
+	if err != nil {
+		return err
+	}
+
+	bodyjson, err := json.Marshal(appointment)
+	if err != nil {
+		return err
+	}
+
 	err = c.ch.Publish(
 		"",                      // exchange
 		notification_queue.Name, // routing key
 		true,                    // mandatory
 		false,                   // immediate
 		amqp.Publishing{
-			ContentType: "text/plain",
-			Body:        []byte(body),
+			ContentType: "application/json",
+			Body:        bodyjson,
 		})
-	failOnError(err, "Failed to publish a message")
+	if err != nil {
+		return err
+	}
 
-	log.Printf(" [x] Sent %s", body)
+	// log.Printf(" [x] Sent uppate %s", bodyjson)
 	return nil
 }
 
