@@ -177,6 +177,7 @@ type PatientRecords struct {
 	HealthID        string             `bson:"health_id" json:"health_id" validate:"required"`
 	MedicalSeverity string             `bson:"medical_severity" json:"medical_severity" validate:"required"`
 	CreatedAt       time.Time          `bson:"created_at" json:"created_at"`
+	HealthcareName  string             `json:"healthcare_name" bson:"healthcare_name" validate:"required,min=5,max=50"`
 }
 
 func CreatePatientRecords(healthcare_id string, patientRecords *PatientRecords) (*PatientRecords, error) {
@@ -186,6 +187,7 @@ func CreatePatientRecords(healthcare_id string, patientRecords *PatientRecords) 
 		Description:     patientRecords.Description,
 		HealthID:        patientRecords.HealthID,
 		MedicalSeverity: patientRecords.MedicalSeverity,
+		HealthcareName:  patientRecords.HealthcareName,
 	}, nil
 }
 

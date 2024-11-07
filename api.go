@@ -721,9 +721,10 @@ func (s *APIServer) CreatepatientRecords(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "healthcare_name not found in token"})
 	}
-
+ 
 	// assign healthcareId
 	patientrecords.Createdby_ = healthcareId
+	patientrecords.HealthcareName = healthcare_name
 
 	// pushing into database
 	// Leave this for now

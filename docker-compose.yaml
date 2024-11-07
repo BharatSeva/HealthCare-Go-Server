@@ -1,6 +1,23 @@
 version: '3.8'
 
 services: 
+  user_express_server:
+    build: .
+    ports:
+      - "3001"
+    restart: always
+    env_file:
+      - .env
+    networks:
+      - app_network
+    deploy:
+      replicas: 1
+    depends_on:
+      - mongodb
+      - rabbitmq
+      - redis
+      - postgres
+
   healthcare_go_server:
     build: .
     ports:
@@ -82,6 +99,7 @@ services:
       - ./user_build:/usr/share/nginx/html/user:ro
     depends_on:
       - healthcare_go_server
+      - user_express_server
     networks:
       - app_network
 
