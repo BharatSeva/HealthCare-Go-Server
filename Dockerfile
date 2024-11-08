@@ -9,5 +9,5 @@ FROM alpine:latest
 WORKDIR /app
 COPY --from=build /app/golang/main ./
 COPY .env .
-EXPOSE 3000
+EXPOSE 3002
 CMD ["./main"]

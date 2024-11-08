@@ -1,4 +1,4 @@
-[![Deploy Go Server to Azure VM](https://github.com/BharatSeva/Healthcare-Server/actions/workflows/deploy.yaml/badge.svg)](https://github.com/BharatSeva/Healthcare-Server/actions/workflows/deploy.yaml)  
+[![Deploy to AzureVM](https://github.com/BharatSeva/Healthcare-Server/actions/workflows/deploy.yaml/badge.svg)](https://github.com/BharatSeva/Healthcare-Server/actions/workflows/deploy.yaml)  
   
 ![Go-Logo_Blue (1)](https://github.com/user-attachments/assets/369e83fe-82c3-463e-85fa-1fb229f5e89f)          
 
@@ -36,7 +36,7 @@ This **Healthcare Service API**, crafted in **Golang**, powers high-concurrency 
 - **Redis** for caching and advance rate limiting
 
 ## Setup & Installation
-Set up the following environment variables for smooth deployment:
+Set up the following environment (.env) variables for smooth deployment:
 ```bash
 PORT=:3000
 MONGOURL=mongodb://rootuser:rootuser@mongodb:27017 
@@ -59,25 +59,18 @@ cd HealthCare-Go-Server
 go mod download
 ```
 
-3. Start Database Services:
-
-```bash
-docker-compose up -d
-```
-
-4. Launch the Server:
+3. Launch the Server:
 
 ```bash
 go run main.go
 ```
 ### Alternatively, deploy using Docker:
-
 ```bash
-docker-compose up -d
+docker run -d -p 3002:3002 --name healthcare --env-file .env healthcare
 ```
 
 ## API Endpoints
-Full documentation of the endpoints and their usage is available in our Postman collection [here](./Golang_HealthCare_BharatSeva.postman_collection.json).
+Full documentation of the endpoints and their usage is available in our Postman collection [here](./Healthcare.postman_collection.json).
 
 ## License
 Licensed under the AGPL-3.0 license. See the [LICENSE](./LICENSE) file for full details.

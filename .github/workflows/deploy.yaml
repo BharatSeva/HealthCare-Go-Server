@@ -1,4 +1,4 @@
-name: Deploy Go Server to Azure VM
+name: Deploy to AzureVM
 
 on:
   workflow_dispatch:
