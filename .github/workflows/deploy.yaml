@@ -1,0 +1,28 @@
+name: Deploy Go Server to Azure VM
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v2
+
+    - name: Deploy to AzureVM
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.KEY }}
+        script: |
+          cd /home/azureuser/server
+          sudo rm -rf Healthcare-Server
+          git clone https://github.com/BharatSeva/Healthcare-Server.git
+          sudo docker rm -f healthcare_server || true
+          sudo docker-compose up -d
