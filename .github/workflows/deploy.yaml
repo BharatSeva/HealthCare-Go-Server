@@ -25,4 +25,4 @@ jobs:
           sudo rm -rf Healthcare-Server
           git clone https://github.com/BharatSeva/Healthcare-Server.git
           sudo docker rm -f healthcare_server || true
-          sudo docker-compose up -d
+          sudo docker-compose up -d --build

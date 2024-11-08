@@ -1,3 +1,5 @@
+[![Deploy Go Server to Azure VM](https://github.com/BharatSeva/Healthcare-Server/actions/workflows/deploy.yaml/badge.svg)](https://github.com/BharatSeva/Healthcare-Server/actions/workflows/deploy.yaml)  
+  
 ![Go-Logo_Blue (1)](https://github.com/user-attachments/assets/369e83fe-82c3-463e-85fa-1fb229f5e89f)          
 
 # Bharat Seva+ Healthcare Service API 🚀
