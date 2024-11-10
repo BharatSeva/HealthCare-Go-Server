@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"fmt" 
 	"log"
 	"net"
 	"net/http"
@@ -18,6 +18,8 @@ import (
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/crypto/bcrypt"
+
+	"github.com/rs/cors"
 )
 
 type contextKey string
@@ -140,22 +142,34 @@ func (s *APIServer) Run() {
 	router.HandleFunc("/api/v1/healthcare/auth/login", (makeHTTPHandlerFunc(s.LoginUser)))
 
 	// this one will serve from postgres
-	router.HandleFunc("/api/v1/healthcare/getpreferance", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.GetPreferance))))
-	router.HandleFunc("/api/v1/healthcare/changepreferance", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.ChangePreferance))))
-	router.HandleFunc("/api/v1/healthcare/deleteaccount", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.DeleteAccount))))
+	router.HandleFunc("/api/v1/healthcare/preferance/get", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.GetPreferance))))
+	router.HandleFunc("/api/v1/healthcare/preferance/change", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.ChangePreferance))))
+	router.HandleFunc("/api/v1/healthcare/delete/account", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.DeleteAccount))))
 
 	// this is will server from mongodb
 	router.HandleFunc("/api/v1/healthcare/appointments/get", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.GetAppointments))))
 	router.HandleFunc("/api/v1/healthcare/appointments/set", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.SetAppointments))))
-	router.HandleFunc("/api/v1/healthcare/createpatientbiodata", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.CreatePatient_bioData))))
-	router.HandleFunc("/api/v1/healthcare/getpatientbiodata", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.GetpatientBioData))))
 	router.HandleFunc("/api/v1/healthcare/details", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.GetHealthcare_details))))
-	router.HandleFunc("/api/v1/healthcare/createrecords", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.CreatepatientRecords))))
-	router.HandleFunc("/api/v1/healthcare/getpatientrecords", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.GetPatientRecords))))
-	router.HandleFunc("/api/v1/healthcare/updatepatientbiodata", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.UpdatePatientBioData))))
+	router.HandleFunc("/api/v1/healthcare/records/create", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.CreatepatientRecords))))
+	router.HandleFunc("/api/v1/healthcare/records/fetch", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.GetPatientRecords))))
+	router.HandleFunc("/api/v1/healthcare/patientbiodata/get", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.GetpatientBioData))))
+	router.HandleFunc("/api/v1/healthcare/patientbiodata/create", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.CreatePatient_bioData))))
+	router.HandleFunc("/api/v1/healthcare/patientbiodata/update", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.UpdatePatientBioData))))
 
-	log.Println("HealthCare Server running on Port: ", s.listenAddr)
-	http.ListenAndServe(s.listenAddr, router)
+	c := cors.New(cors.Options{
+        AllowedOrigins:   []string{"*"},
+        AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+        AllowedHeaders:   []string{"Content-Type", "Authorization"},
+        AllowCredentials: true,
+    })
+
+    // Wrap the router with CORS handler
+    handler := c.Handler(router)
+
+    log.Println("HealthCare Server running on Port: ", s.listenAddr)
+    if err := http.ListenAndServe(s.listenAddr, handler); err != nil {
+        log.Fatal(err)
+    }
 }
 
 func (s *APIServer) SignUp(w http.ResponseWriter, r *http.Request) error {
@@ -167,7 +181,7 @@ func (s *APIServer) SignUp(w http.ResponseWriter, r *http.Request) error {
 
 	req := mod.HIPInfo{}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+		return writeJSON(w, http.StatusMethodNotAllowed, map[string]interface{}{
 			"message": "Something mishappened from our side :)",
 			"error":   err.Error(),
 		})
@@ -465,6 +479,10 @@ func (s *APIServer) GetAppointments(w http.ResponseWriter, r *http.Request) erro
 			"error": "error: " + err.Error(),
 		})
 	}
+	// print [] array always if appointis empty
+	if appointments == nil {
+		appointments = []*mod.Appointments{}
+	}
 	return writeJSON(w, http.StatusOK, map[string]interface{}{
 		"appointments": appointments,
 		"fetched":      len(appointments),
@@ -713,6 +731,13 @@ func (s *APIServer) CreatepatientRecords(w http.ResponseWriter, r *http.Request)
 			"message": err,
 		})
 	}
+
+	if patientrecords.MedicalSeverity != "High" && patientrecords.MedicalSeverity != "Low" && patientrecords.MedicalSeverity!= "Severe" && patientrecords.MedicalSeverity!="Normal" {
+		return writeJSON(w, http.StatusNotAcceptable, map[string]interface{}{
+			"message": "medical_severity value not acceptable must be one of [High, Low, Severe, Normal]",
+		})
+	}
+
 	healthcareId, ok := r.Context().Value(contextKeyHealthCareID).(string)
 	if !ok {
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"message": "StatusUnauthorized"})
@@ -769,7 +794,7 @@ func (s *APIServer) CreatepatientRecords(w http.ResponseWriter, r *http.Request)
 	// }
 
 	return writeJSON(w, http.StatusOK, map[string]interface{}{
-		"message": "successfully processed, within few hours your records will be created",
+		"message": "successfully processed, within few hours records will be created",
 		"status":  "pending",
 	})
 }

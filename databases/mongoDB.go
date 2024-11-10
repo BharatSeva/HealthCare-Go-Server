@@ -72,7 +72,6 @@ func (m *MongoStore) Init() error {
 // fetch appointments
 func (m *MongoStore) GetAppointments(healthcareID string, list int) ([]*Appointments, error) {
 	coll := m.db.Database(m.database).Collection("appointments")
-
 	filter := bson.D{{Key: "healthcare_id", Value: healthcareID}}
 	findOptions := options.Find().SetLimit(int64(list))
 	cursor, err := coll.Find(context.TODO(), filter, findOptions)
