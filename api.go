@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt" 
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -20,6 +20,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/rs/cors"
+
+	// for monitoring
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type contextKey string
@@ -138,6 +141,10 @@ func NewAPIServer(listen string, store Store) *APIServer {
 
 func (s *APIServer) Run() {
 	router := mux.NewRouter()
+	// Add Prometheus middleware to all routes
+	router.Use(PrometheusMiddleware)
+	router.Path("/metrics").Handler(promhttp.Handler())
+
 	router.HandleFunc("/api/v1/healthcare/auth/register", (makeHTTPHandlerFunc(s.SignUp)))
 	router.HandleFunc("/api/v1/healthcare/auth/login", (makeHTTPHandlerFunc(s.LoginUser)))
 
@@ -157,19 +164,19 @@ func (s *APIServer) Run() {
 	router.HandleFunc("/api/v1/healthcare/patientbiodata/update", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.UpdatePatientBioData))))
 
 	c := cors.New(cors.Options{
-        AllowedOrigins:   []string{"*"},
-        AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-        AllowedHeaders:   []string{"Content-Type", "Authorization"},
-        AllowCredentials: true,
-    })
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization"},
+		AllowCredentials: true,
+	})
 
-    // Wrap the router with CORS handler
-    handler := c.Handler(router)
+	// Wrap the router with CORS handler
+	handler := c.Handler(router)
 
-    log.Println("HealthCare Server running on Port: ", s.listenAddr)
-    if err := http.ListenAndServe(s.listenAddr, handler); err != nil {
-        log.Fatal(err)
-    }
+	log.Println("HealthCare Server running on Port: ", s.listenAddr)
+	if err := http.ListenAndServe(s.listenAddr, handler); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func (s *APIServer) SignUp(w http.ResponseWriter, r *http.Request) error {
@@ -732,7 +739,7 @@ func (s *APIServer) CreatepatientRecords(w http.ResponseWriter, r *http.Request)
 		})
 	}
 
-	if patientrecords.MedicalSeverity != "High" && patientrecords.MedicalSeverity != "Low" && patientrecords.MedicalSeverity!= "Severe" && patientrecords.MedicalSeverity!="Normal" {
+	if patientrecords.MedicalSeverity != "High" && patientrecords.MedicalSeverity != "Low" && patientrecords.MedicalSeverity != "Severe" && patientrecords.MedicalSeverity != "Normal" {
 		return writeJSON(w, http.StatusNotAcceptable, map[string]interface{}{
 			"message": "medical_severity value not acceptable must be one of [High, Low, Severe, Normal]",
 		})
@@ -746,7 +753,7 @@ func (s *APIServer) CreatepatientRecords(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "healthcare_name not found in token"})
 	}
- 
+
 	// assign healthcareId
 	patientrecords.Createdby_ = healthcareId
 	patientrecords.HealthcareName = healthcare_name
