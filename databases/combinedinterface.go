@@ -78,6 +78,10 @@ func (s *CombinedStore) GetTotalRequestCount(healthcare_id string) (int, error) 
 	return s.postgres.GetTotalRequestCount(healthcare_id)
 }
 
+func (s *CombinedStore) CreateClient_stats(health_id string)(error){
+	return s.postgres.CreateClient_stats(health_id)
+}
+
 // mongodb methods goes here.....
 func (s *CombinedStore) GetAppointments(id string, list int) ([]*Appointments, error) {
 	return s.mongodb.GetAppointments(id, list)

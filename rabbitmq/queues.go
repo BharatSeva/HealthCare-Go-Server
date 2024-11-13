@@ -43,7 +43,9 @@ func (c *Rabbitmq) Push_logs(category, name, email, healthId, healthcarename, he
 			"healthcare_id":   healthcare_id,
 			"healthcare_name": healthcarename,
 		}
-	case "recordCreated":
+	case "records_created":
+		// since name and email is not present
+		// comment them out
 		body = map[string]interface{}{
 			"date": time.Now().Format("2006-01-02 15:04:05"),
 			// "name":         name,
@@ -53,7 +55,9 @@ func (c *Rabbitmq) Push_logs(category, name, email, healthId, healthcarename, he
 			"healthcare_id":   healthcare_id,
 			"healthcare_name": healthcarename,
 		}
-	case "recordViewed":
+	case "records_viewed":
+		// since name and email is not present
+		// comment them out
 		body = map[string]interface{}{
 			// "patient_name":  name,
 			// "patient_email": email,
@@ -73,7 +77,7 @@ func (c *Rabbitmq) Push_logs(category, name, email, healthId, healthcarename, he
 			"healthcare_id":   healthcare_id,
 			"healthcare_name": healthcarename,
 		}
-	case "biodataCreated":
+	case "profile_created":
 		body = map[string]interface{}{
 			"patient_name":    name,
 			"date":            time.Now().Format("2006-01-02 15:04:05"),
@@ -83,7 +87,7 @@ func (c *Rabbitmq) Push_logs(category, name, email, healthId, healthcarename, he
 			"healthcare_id":   healthcare_id,
 			"healthcare_name": healthcarename,
 		}
-	case "biodataViewed":
+	case "profile_viewed":
 		body = map[string]interface{}{
 			"patient_name":    name,
 			"email":           email,
@@ -93,7 +97,7 @@ func (c *Rabbitmq) Push_logs(category, name, email, healthId, healthcarename, he
 			"healthcare_id":   healthcare_id,
 			"healthcare_name": healthcarename,
 		}
-	case "biodataUpdated":
+	case "profile_updated":
 		body = map[string]interface{}{
 			"patient_name":    name,
 			"category":        category,
@@ -148,11 +152,11 @@ func (c *Rabbitmq) Push_logs(category, name, email, healthId, healthcarename, he
 func (c *Rabbitmq) Push_patient_records(record map[string]interface{}) error {
 	notification_queue, err := c.ch.QueueDeclare(
 		"patient_records", // queue name
-		false,                 // durable
-		false,                 // delete when unused
-		false,                 // exclusive
-		false,                 // no-wait
-		nil,                   // arguments
+		false,             // durable
+		false,             // delete when unused
+		false,             // exclusive
+		false,             // no-wait
+		nil,               // arguments
 	)
 	if err != nil {
 		return err

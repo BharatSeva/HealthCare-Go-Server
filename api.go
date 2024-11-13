@@ -33,54 +33,6 @@ const (
 	contextKeyHealthCareName    = contextKey("healthcare_name")
 )
 
-// type postgres interface {
-// 	SignUpAccount(*mod.HIPInfo) (int64, error)
-// 	LoginUser(*mod.Login) (*mod.HIPInfo, error)
-// 	ChangePreferance(int, *mod.ChangePreferance) error
-// 	GetPreferance(int) (*mod.ChangePreferance, error)
-// }
-
-/////////////////////////////////////////
-///// APIServer Server ///////
-
-// type mongodb interface {
-// 	GetAppointments(int) ([]*mod.Appointments, error)
-// 	CreatePatient_bioData(int, *mod.PatientDetails) (*mod.PatientDetails, error)
-// 	GetPatient_bioData(string) (*mod.PatientDetails, error)
-// 	GetHealthcare_details(int) (*mod.HIPInfo, error)
-// 	CreatepatientRecords(string, *mod.PatientRecords) (*mod.PatientRecords, error)
-// 	GetPatientRecords(string, int) (*[]mod.PatientRecords, error)
-// 	UpdatePatientBioData(string, map[string]interface{}) (*mod.PatientDetails, error)
-// }
-// type MONGODB struct {
-// 	listenAddr string
-// 	store      mongodb
-// }
-
-// func NewMONOGODB_SERVER(listen string, store mongodb) *MONGODB {
-// 	return &MONGODB{
-// 		listenAddr: listen,
-// 		store:      store,
-// 	}
-// }
-
-// func (m *MONGODB) Run() {
-// 	router := mux.NewRouter()
-// 	router.HandleFunc("/api/v1/healthcare/getappointments", withJWTAuth(makeHTTPHandlerFunc(m.GetAppointments)))
-// 	router.HandleFunc("/api/v1/healthcare/createpatientbiodata", withJWTAuth(makeHTTPHandlerFunc(m.CreatePatient_bioData)))
-// 	router.HandleFunc("/api/v1/healthcare/getpatientbiodata", withJWTAuth(makeHTTPHandlerFunc(m.GetpatientBioData)))
-// 	router.HandleFunc("/api/v1/healthcare/getdetails", withJWTAuth(makeHTTPHandlerFunc(m.GetDetails)))
-// 	router.HandleFunc("/api/v1/healthcare/createrecords", withJWTAuth(makeHTTPHandlerFunc(m.CreatepatientRecords)))
-// 	router.HandleFunc("/api/v1/healthcare/getpatientrecords", withJWTAuth(makeHTTPHandlerFunc(m.GetPatientRecords)))
-// 	router.HandleFunc("/api/v1/healthcare/updatepatientbiodata", withJWTAuth(makeHTTPHandlerFunc(m.UpdatePatientBioData)))
-
-// 	log.Println("MONGODB_HealthCare Server running on Port: ", m.listenAddr)
-// 	http.ListenAndServe(m.listenAddr, router)
-// }
-
-// ///////////////////////////////////////5
-// MongoDB Server ///////
-
 type Store interface {
 	// PostgreSQL Methods goes here...
 	SignUpAccount(*mod.HIPInfo) (int64, error)
@@ -88,6 +40,7 @@ type Store interface {
 	ChangePreferance(string, map[string]interface{}) error
 	GetPreferance(string) (*mod.ChangePreferance, error)
 	GetTotalRequestCount(string) (int, error)
+	CreateClient_stats(string) error
 	// counters goes here.....
 	// Recordsviewed_counter(string) error
 	// Recordscreated_counter(string) error
@@ -165,7 +118,7 @@ func (s *APIServer) Run() {
 
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"*"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH"},
 		AllowedHeaders:   []string{"Content-Type", "Authorization"},
 		AllowCredentials: true,
 	})
@@ -571,6 +524,15 @@ func (s *APIServer) CreatePatient_bioData(w http.ResponseWriter, r *http.Request
 		})
 	}
 
+	// create stats for this patient also
+	err = s.store.CreateClient_stats(patientDetails.HealthID)
+	if err != nil {
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"message": "Something Went Wrong from our side :(",
+			"err":     err.Error(),
+		})
+	}
+
 	// Push this into rabbitmq instead of directly into database (mongodDB)
 	// Push into rabbitmq
 	// body := map[string]interface{}{
@@ -585,7 +547,14 @@ func (s *APIServer) CreatePatient_bioData(w http.ResponseWriter, r *http.Request
 	// 	})
 	// }
 	// Notify user via email
-	s.store.Push_logs("biodataUpdated", patientDetails.FirstName, patientDetails.Email, patientDetails.HealthID, healthcare_name, healthcareID)
+
+	err = s.store.Push_logs("profile_updated", patientDetails.FirstName, patientDetails.Email, patientDetails.HealthID, healthcare_name, healthcareID)
+	if err != nil {
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"message": "Something Went Wrong from our side :(",
+			"err":     err.Error(),
+		})
+	}
 
 	// counters
 	// err = s.store.Push_counters("hip:patientbiodata_created_counter", patientDetails.HealthcareID)
@@ -635,8 +604,9 @@ func (s *APIServer) GetpatientBioData(w http.ResponseWriter, r *http.Request) er
 			"message": "patient not found :(",
 		})
 	}
+
 	// Notify user via email
-	err = s.store.Push_logs("biodataViewed", patientDetails.FirstName, patientDetails.Email, patientDetails.HealthID, healthcare_name, healthcareID)
+	err = s.store.Push_logs("profile_viewed", patientDetails.FirstName, patientDetails.Email, patientDetails.HealthID, healthcare_name, healthcareID)
 	if err != nil {
 		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
 			"err":     err.Error(),
@@ -782,7 +752,7 @@ func (s *APIServer) CreatepatientRecords(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Notify user via email
-	err = s.store.Push_logs("recordCreated", nil, nil, patientrecords.HealthID, healthcare_name, healthcareId)
+	err = s.store.Push_logs("records_created", nil, nil, patientrecords.HealthID, healthcare_name, healthcareId)
 	if err != nil {
 		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
 			"message": "Something Mishappened (Please Mail 21vaibhav11@gmail.com for this issue)",
@@ -850,7 +820,13 @@ func (s *APIServer) GetPatientRecords(w http.ResponseWriter, r *http.Request) er
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "healthcare_name not found in token"})
 	}
 
-	s.store.Push_logs("recordViewed", nil, nil, health_id, healthcare_name, healthcareId)
+	// push logs that your records_has been viewed and send notifications
+	err = s.store.Push_logs("records_viewed", nil, nil, health_id, healthcare_name, healthcareId)
+	if err != nil {
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"message": "Internal Server Error: could not process data",
+		})
+	}
 
 	// counters (Will be removed soon)
 	// err = s.store.Push_counters("hip:recordsviewed_counter", healthcareId)
@@ -911,7 +887,7 @@ func (s *APIServer) UpdatePatientBioData(w http.ResponseWriter, r *http.Request)
 	}
 	// Get HealthCareId and update the patient
 	// push the logs into queue
-	s.store.Push_logs("biodataUpdated", updatedPatient.FirstName, updatedPatient.Email, updatedPatient.HealthID, healthcare_name, healthcareId)
+	s.store.Push_logs("profile_updated", updatedPatient.FirstName, updatedPatient.Email, updatedPatient.HealthID, healthcare_name, healthcareId)
 
 	return writeJSON(w, http.StatusAccepted, map[string]interface{}{
 		"updated_details": updatedPatient,

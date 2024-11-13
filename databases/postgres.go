@@ -80,6 +80,15 @@ func (s *PostgresStore) CreateTable() error {
 			name VARCHAR(50) NOT NULL,
 			FOREIGN KEY (healthcare_id) REFERENCES HIP_TABLE(healthcare_id) ON DELETE CASCADE
 		);`,
+		`CREATE TABLE IF NOT EXISTS client_stats (
+			health_id VARCHAR PRIMARY KEY UNIQUE,
+			account_status VARCHAR CHECK (account_status IN ('Trial', 'Testing', 'Beta', 'Premium')) NOT NULL DEFAULT 'Trial',
+			available_money VARCHAR NOT NULL DEFAULT '5000',
+			profile_viewed INTEGER NOT NULL DEFAULT 0,
+			profile_updated INTEGER NOT NULL DEFAULT 0,
+			records_viewed INTEGER NOT NULL DEFAULT 0,
+			records_created INTEGER NOT NULL DEFAULT 0
+		);`,
 	}
 	for _, query := range queries {
 		_, err := s.db.Exec(query)
@@ -205,6 +214,17 @@ func (s *PostgresStore) GetTotalRequestCount(healthcare_id string) (int, error) 
 	}
 
 	return count, nil
+}
+
+func (s *PostgresStore) CreateClient_stats(health_id string) error {
+	query := `INSERT INTO client_stats (health_id, account_status, 
+		available_money, profile_viewed, profile_updated, records_viewed, 
+		records_created) VALUES ($1, $2, $3, $4, $5, $6, $7);`
+	_, err := s.db.Exec(query, health_id, "Trial", 5000, 0, 0, 0, 0)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // Utility Functions
