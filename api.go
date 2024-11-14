@@ -38,7 +38,7 @@ type Store interface {
 	SignUpAccount(*mod.HIPInfo) (int64, error)
 	LoginUser(*mod.Login) (*mod.HIPInfo, error)
 	ChangePreferance(string, map[string]interface{}) error
-	GetPreferance(string) (*mod.ChangePreferance, error)
+	GetPreferance(string) (*mod.Preferance, error)
 	GetTotalRequestCount(string) (int, error)
 	CreateClient_stats(string) error
 	// counters goes here.....
@@ -146,6 +146,7 @@ func (s *APIServer) SignUp(w http.ResponseWriter, r *http.Request) error {
 			"error":   err.Error(),
 		})
 	}
+
 	user, err := mod.SignUpAccount(&req)
 	if err != nil {
 		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
@@ -154,17 +155,21 @@ func (s *APIServer) SignUp(w http.ResponseWriter, r *http.Request) error {
 		})
 	}
 
+	// store in postgres !!
 	_, err = s.store.SignUpAccount(user)
 	if err != nil {
 		return writeJSON(w, http.StatusNotAcceptable, map[string]interface{}{
 			"message": "User already exists",
+			"err":     err.Error(),
 		})
 	}
 
+	// store in mongoDB also !!
 	_, err = s.store.CreateHealthcare_details(user)
 	if err != nil {
 		return writeJSON(w, http.StatusNotAcceptable, map[string]interface{}{
 			"message": "User already exists",
+			"err":     err.Error(),
 		})
 	}
 
@@ -214,6 +219,22 @@ func (s *APIServer) LoginUser(w http.ResponseWriter, r *http.Request) error {
 		})
 	}
 
+	// check for total_request
+	ok, err := s.store.IsAllowed(login.HealthcareID)
+	if err != nil {
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"message": "Something went wrong from our side",
+		})
+	}
+
+	// block request if limit exceeded
+	if !ok {
+		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"status": "Your request quota has been exhausted",
+			"message": "Mail 21vaibhav11@gmail.com with your Id to increase your quota",
+		})
+	}
+
 	hip, err := s.store.LoginUser(login)
 	if err != nil {
 		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
@@ -233,7 +254,12 @@ func (s *APIServer) LoginUser(w http.ResponseWriter, r *http.Request) error {
 		ip, _, _ = net.SplitHostPort(r.RemoteAddr)
 	}
 	// Notify user everytime user login !
-	s.store.Push_logs("hip_accountLogin", hip.HealthcareName, hip.Email, ip, hip.HealthcareName, hip.HealthcareID)
+	err = s.store.Push_logs("hip_accountLogin", hip.HealthcareName, hip.Email, ip, hip.HealthcareName, hip.HealthcareID)
+	if err != nil {
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"message": "Something went wrong from our side",
+		})
+	}
 	// check quota limit
 	// from sql database first
 	count, err := s.store.GetTotalRequestCount(login.HealthcareID)
@@ -304,7 +330,7 @@ func (s *APIServer) GetPreferance(w http.ResponseWriter, r *http.Request) error 
 			"error": r.Method + " method not allowed",
 		})
 	}
-	req := &mod.ChangePreferance{}
+	pref := &mod.Preferance{}
 	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(string)
 	if !ok {
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
@@ -325,29 +351,37 @@ func (s *APIServer) GetPreferance(w http.ResponseWriter, r *http.Request) error 
 					"error": err.Error(),
 				})
 			}
+
 			if fetched != nil {
-				fetchedStr, ok := fetched.(string)
+				fetchedData, ok := fetched.(struct {
+					Value string        `json:"value"`
+					TTL   time.Duration `json:"ttl"`
+				})
+
 				if !ok {
 					return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
-						"error": "Failed to convert data to string",
+						"error": "Failed to convert data to expected format",
 					})
 				}
-				var jsonBody *mod.ChangePreferance
-				err = json.Unmarshal([]byte(fetchedStr), &jsonBody)
+
+				var jsonBody *mod.Preferance
+				err = json.Unmarshal([]byte(fetchedData.Value), &jsonBody)
 				if err != nil {
 					return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
 						"error": "Failed to parse the data",
 					})
 				}
+
 				return writeJSON(w, http.StatusOK, map[string]interface{}{
 					"preferance": jsonBody,
+					"refreshIn(seconds)":  fetchedData.TTL.Seconds(),
 				})
 			}
 		}
 	}
 
 	// fetch from database
-	req, err := s.store.GetPreferance(healthcareID)
+	pref, err := s.store.GetPreferance(healthcareID)
 	if err != nil {
 		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
 			"message": "Something mishappened from our side :)",
@@ -356,7 +390,7 @@ func (s *APIServer) GetPreferance(w http.ResponseWriter, r *http.Request) error 
 	}
 
 	// Store into redis
-	err = s.store.Set("hip:pref:"+healthcareID, req)
+	err = s.store.Set("hip:pref:"+healthcareID, pref)
 	if err != nil {
 		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
 			"message": "Something mishappened from our side :)",
@@ -365,7 +399,7 @@ func (s *APIServer) GetPreferance(w http.ResponseWriter, r *http.Request) error 
 	}
 
 	return writeJSON(w, http.StatusOK, map[string]interface{}{
-		"preferance": req,
+		"preferance": pref,
 	})
 }
 
@@ -654,19 +688,24 @@ func (s *APIServer) GetHealthcare_details(w http.ResponseWriter, r *http.Request
 				})
 			}
 			if fetched != nil {
-				fetchedStr, ok := fetched.(string)
+				fetchedData, ok := fetched.(struct {
+					Value string        `json:"value"`
+					TTL   time.Duration `json:"ttl"`
+				})
+
 				if !ok {
 					return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
-						"error": "Failed to convert data to string",
+						"error": "Failed to convert data to expected format",
 					})
 				}
 				var jsonBody *mod.HIPInfo
-				err = json.Unmarshal([]byte(fetchedStr), &jsonBody)
+				err = json.Unmarshal([]byte(fetchedData.Value), &jsonBody)
 				if err != nil {
 					return err
 				}
 				return writeJSON(w, http.StatusOK, map[string]interface{}{
-					"preferance": jsonBody,
+					"preferance":         jsonBody,
+					"refreshIn(seconds)": fetchedData.TTL.Seconds(),
 				})
 			}
 		}
@@ -897,7 +936,7 @@ func (s *APIServer) UpdatePatientBioData(w http.ResponseWriter, r *http.Request)
 // ///////////////////////////// ///////////////////// ///////////////// //////////// /////////////// ////////////// /
 /////////////////////////// ///  	 Utility Functions  	///////////////////////// ////////////////// ///////////// ///////
 
-// rate limiter goes here...
+// Rate limiter goes here...
 func (s *APIServer) RateLimiter(handlerFunc http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(string)

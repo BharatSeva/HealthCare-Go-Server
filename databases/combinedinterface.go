@@ -70,7 +70,7 @@ func (s *CombinedStore) ChangePreferance(id string, pref map[string]interface{})
 	return s.postgres.ChangePreferance(id, pref)
 }
 
-func (s *CombinedStore) GetPreferance(id string) (*ChangePreferance, error) {
+func (s *CombinedStore) GetPreferance(id string) (*Preferance, error) {
 	return s.postgres.GetPreferance(id)
 }
 

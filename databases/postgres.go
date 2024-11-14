@@ -55,11 +55,11 @@ func (s *PostgresStore) CreateTable() error {
 			Id SERIAL PRIMARY KEY,
 			healthcare_id TEXT NOT NULL,
 			scheduled_deletion VARCHAR(20),
-			biodata_viewed_count INTEGER,
-			healthID_created_count INTEGER NOT NULL,
+			profile_viewed INTEGER,
+			profile_updated INTEGER NOT NULL,
 			account_locked VARCHAR(15) NOT NULL,
-			records_created_count INTEGER NOT NULL,
-			recordsviewed_count INTEGER NOT NULL,
+			records_created INTEGER NOT NULL,
+			records_viewed INTEGER NOT NULL,
 			totalrequest_count INTEGER NOT NULL,
 			appointmentFee INTEGER NOT NULL,
 			isAvailable VARCHAR(20) NOT NULL,
@@ -106,8 +106,8 @@ func (s *PostgresStore) SignUpAccount(hip *HIPInfo) (int64, error) {
 		state, city, landmark)
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING healthcare_id`
 
-	query1 := `INSERT INTO HealthCare_pref (healthcare_id, scheduled_deletion, biodata_viewed_count, 
-			  healthID_created_count, account_locked, records_created_count, recordsviewed_count, 
+	query1 := `INSERT INTO HealthCare_pref (healthcare_id, scheduled_deletion, profile_viewed, 
+		profile_updated, account_locked, records_created, records_viewed, 
 			  totalRequest_count, appointmentFee, isAvailable)
 	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
 
@@ -176,23 +176,28 @@ func (s *PostgresStore) ChangePreferance(healthcareId string, preferance map[str
 	return nil
 }
 
-func (s *PostgresStore) GetPreferance(healthcareId string) (*ChangePreferance, error) {
+func (s *PostgresStore) GetPreferance(healthcareId string) (*Preferance, error) {
 	query := `
-		SELECT 
-			HIP_TABLE.email, 
-			HealthCare_pref.isavailable, 
-			HealthCare_pref.scheduled_deletion 
-		FROM 
-			HIP_TABLE 
-		INNER JOIN 
-		HealthCare_pref 
-		ON 
-			HIP_TABLE.healthcare_id = HealthCare_pref.healthcare_id 
-		WHERE 
-			HIP_TABLE.healthcare_id = $1;
-	`
-	preferance := &ChangePreferance{}
-	err := s.db.QueryRow(query, healthcareId).Scan(&preferance.Email, &preferance.IsAvailable, &preferance.Scheduled_deletion)
+			SELECT 
+				HIP_TABLE.email, 
+				HealthCare_pref.isavailable, 
+				HealthCare_pref.scheduled_deletion, 
+				HealthCare_pref.profile_updated, 
+				HealthCare_pref.profile_viewed, 
+				HealthCare_pref.records_created, 
+				HealthCare_pref.records_viewed 
+			FROM 
+				HIP_TABLE 
+			INNER JOIN 
+				HealthCare_pref 
+			ON 
+				HIP_TABLE.healthcare_id = HealthCare_pref.healthcare_id 
+			WHERE 
+				HIP_TABLE.healthcare_id = $1;
+		`
+
+	preferance := &Preferance{}
+	err := s.db.QueryRow(query, healthcareId).Scan(&preferance.Email, &preferance.IsAvailable, &preferance.Scheduled_deletion, &preferance.Profile_updated, &preferance.Profile_viewed, &preferance.Records_created, &preferance.Records_viewed)
 	if err != nil {
 		return nil, err
 	}

@@ -23,19 +23,22 @@ func (r *Redisconn) Get(key string) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	// ttl, err := r.conn.TTL(r.ctx, key).Result()
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// fmt.Println(ttl)
-	// marshal the data first adn everytime I call it
-	// var jsonBody ChangePreference
-	// err = json.Unmarshal([]byte(val), &jsonBody)
-	// if err != nil {
-	// 	return nil, err
-	// }
 
-	return val, nil
+	ttl, err := r.conn.TTL(r.ctx, key).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	// return as single interface
+	response := struct {
+		Value string        `json:"value"`
+		TTL   time.Duration `json:"ttl"`
+	}{
+		Value: val,
+		TTL:   ttl,
+	}
+
+	return response, nil
 }
 
 func (r *Redisconn) Close() error {

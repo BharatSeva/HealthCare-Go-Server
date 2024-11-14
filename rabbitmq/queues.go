@@ -116,6 +116,15 @@ func (c *Rabbitmq) Push_logs(category, name, email, healthId, healthcarename, he
 			"healthcare_name": healthcarename,
 			"date":            time.Now().Format("2006-01-02 15:04:05"),
 		}
+	case "hip_request_blocked":
+		body = map[string]interface{}{
+			"hip_name":        name,
+			"category":        category,
+			"hip_email":       email,
+			"healthcare_id":   healthcare_id,
+			"healthcare_name": healthcarename,
+			"date":            time.Now().Format("2006-01-02 15:04:05"),
+		}
 	default:
 		body = map[string]interface{}{
 			"name":         "Vaibhav Yadav",

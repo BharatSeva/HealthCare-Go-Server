@@ -22,11 +22,10 @@ func (r *Redisconn) IsAllowed(healthcare_id string) (bool, error) {
 	// if total request per session crossed 300 then logout
 	// block the request forever untill quota has been reset again
 	if total_count > 300 {
+		// block request permanently
 		return false, err
 	}
 
-
-	
 	if count == 1 {
 		err = r.conn.Expire(r.ctx, key, r.window).Err()
 		if err != nil {
@@ -53,7 +52,7 @@ func (r *Redisconn) IsAllowed_leaky_bucket(healthcare_id string) (bool, error) {
 
 	now := time.Now()
 	timePassed := now.Sub(r.lastchecked).Seconds()
-	allowedOutflow := int64(timePassed * 10000) // 10,000 req second
+	allowedOutflow := int64(timePassed * 50) // 50 req second
 	r.lastchecked = now
 
 	_, err := r.conn.DecrBy(r.ctx, key, allowedOutflow).Result()

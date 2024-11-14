@@ -197,3 +197,12 @@ type ChangePreferance struct {
 	IsAvailable        bool   `json:"isAvailable"`
 	Scheduled_deletion bool   `json:"scheduled_deletion"`
 }
+type Preferance struct {
+	Email              string `json:"email"`
+	IsAvailable        bool   `json:"isAvailable"`
+	Scheduled_deletion bool   `json:"scheduled_deletion"`
+	Profile_updated    int32   `json:"profile_updated"`
+	Profile_viewed     int32   `json:"profile_viewed"`
+	Records_created    int32   `json:"records_created"`
+	Records_viewed     int32   `json:"records_viewed"`
+}
