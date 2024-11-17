@@ -1,42 +1,70 @@
-[![Deploy to AzureVM](https://github.com/BharatSeva/Healthcare-Server/actions/workflows/deploy.yaml/badge.svg)](https://github.com/BharatSeva/Healthcare-Server/actions/workflows/deploy.yaml)  
-  
-![Go-Logo_Blue (1)](https://github.com/user-attachments/assets/369e83fe-82c3-463e-85fa-1fb229f5e89f)          
+# Bharat Seva+ Healthcare Service API 🚀  
 
-# Bharat Seva+ Healthcare Service API 🚀
+Welcome to the **Bharat Seva+ Healthcare Service API**!  
+This API is a high-performance backend solution designed to streamline healthcare management. Built using **Golang**, it handles complex workflows like managing patient records, medical history, appointments, and notifications with ease. Designed for **scalability**, **security**, and **efficiency**, this API ensures fast, reliable service in high-concurrency environments.  
 
-This **Healthcare Service API**, crafted in **Golang**, powers high-concurrency environments with low-latency responses. Optimized for scalability, the API manages healthcare records, appointments, and patient notifications efficiently and securely.
-
+---
 
 ## Table of Contents
-- [Key Features](#key-features)
-- [Tech Requirements](#tech-requirements)
-- [Setup & Installation](#setup--installation)
-- [API Endpoints](#api-endpoints)
-- [License](#license)
+- [Key Features](#key-features)  
+- [Tech Requirements](#tech-requirements)  
+- [Setup & Installation](#setup--installation)  
+- [API Endpoints](#api-endpoints)  
+- [License](#license)  
 
+---
 
-## Key Features
-- **Patient Record Management:** Full CRUD operations for handling patient data with robust error handling and optimized retrieval.
-- **Medical History Access:** A secure repository for patients' healthcare history, accessible through structured queries.
-- **JWT-Based Security:** JSON Web Tokens (JWT) for secure access to API endpoints.
-- **Multi-Database Integration:** Optimized data flow across **PostgreSQL**  and **MongoDB**.
-- **Redis Caching** : Real-time caching and rate-limiting for optimal response times and resource efficiency.
-- **RabbitMQ for Async Tasks** : Enhances processing of background tasks for smoother user experiences.
-- **High-Performance & Concurrent:** Built for high-request environments with minimal response times.
-- **Containerized with Docker:** Simple deployment through Docker for a reliable, cross-platform experience.
+## Key Features  
 
+- **📂 Patient Record Management:**  
+  Effortless creation, retrieval, updating, and deletion (CRUD) of patient data, with robust error handling and optimized query performance.  
 
-## Tech Requirements
-- **Go** v1.22+
-- **PostgreSQL** and **MongoDB** for data persistence
-- **Docker** for containerized environments
-- **RabbitMQ** for asynchronous tasks
-- **Redis** for caching and advance rate limiting
+- **🗂️ Medical History Access:**  
+  A secure and structured repository for accessing patients’ healthcare histories, ensuring seamless integrations with other systems.  
 
-## Setup & Installation
-Set up the following environment (.env) variables for smooth deployment:
+- **🔒 JWT-Based Security:**  
+  End-to-end protection of API endpoints using **JSON Web Tokens (JWT)**, ensuring secure authentication and data privacy.  
+
+- **💾 Multi-Database Integration:**  
+  Harnesses the power of both **PostgreSQL** for relational data and **MongoDB** for NoSQL needs, ensuring data flexibility and resilience.  
+
+- **⚡ Redis Caching:**  
+  Implements real-time caching and advanced rate limiting, reducing response times while maintaining server health.  
+
+- **📩 RabbitMQ for Async Tasks:**  
+  Processes background tasks like notifications and logs asynchronously, ensuring smooth user experiences.  
+
+- **🚀 High-Performance & Concurrent:**  
+  Optimized for environments with high request rates, delivering rapid responses with minimal latency.  
+
+- **🐳 Containerized with Docker:**  
+  Streamlined deployments using **Docker**, enabling reliable and platform-agnostic setups.  
+
+---
+
+## Tech Requirements  
+
+To run this API, you’ll need:  
+- **Go** v1.22+  
+- **PostgreSQL** and **MongoDB** for persistent storage  
+- **Docker** for containerized deployments  
+- **RabbitMQ** for task queuing  
+- **Redis** for caching and rate limiting  
+
+---
+
+## Setup & Installation  
+
+### 1. Clone the Repository
 ```bash
-PORT=:3000
+git clone https://github.com/BharatSeva/Healthcare-Server.git
+cd Healthcare-Server
+```
+
+### 2. Configure Environment Variables  
+Set up a `.env` file with the following variables for smooth deployment:  
+```bash
+PORT=:3002
 MONGOURL=mongodb://rootuser:rootuser@mongodb:27017 
 POSTGRES=postgres://rootuser:rootuser@postgres:5432/postgres?sslmode=disable
 RABBITMQ=amqp://rootuser:rootuser@rabbitmq:5672/
@@ -44,32 +72,21 @@ REDIS=redis:6379
 KEY=VAIBHAVYADAV
 ```
 
-1. Clone the Repository:
-
-```bash
-git clone https://github.com/BharatSeva/Healthcare-Server.git
-cd Healthcare-Server
-```
-
-2. Install Dependencies:
-
+### 3. Install Dependencies
 ```bash
 go mod download
 ```
-
-3. Launch the Server:
-
+### 4. Launch the Server Locally
 ```bash
 go run main.go
 ```
-### Alternatively, deploy using Docker:
+Alternatively, Deploy Using Docker
 ```bash
 docker run -d -p 3002:3002 --name healthcare --env-file .env healthcare
 ```
-
-## API Endpoints
-Full documentation of the endpoints and their usage is available in our Postman collection [here](./Healthcare.postman_collection.json).
+### API Endpoints
+Explore the full range of available endpoints and their usage with our Postman collection.
+Find it here: [Healthcare API Postman Collection](./Healthcare.postman_collection.json).
 
 ## License
-Licensed under the AGPL-3.0 license. See the [LICENSE](./LICENSE) file for full details.
-
+This project is licensed under the AGPL-3.0 License. For more details, check the [LICENSE](./LICENSE) file.
