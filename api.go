@@ -7,16 +7,17 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"reflect"
+	"regexp"
 	"strconv"
 	"time"
 
 	mod "vaibhavyadav-dev/healthcareServer/databases"
 
-	_ "github.com/go-playground/validator/v10"
+	"github.com/go-playground/validator/v10"
 	"github.com/go-redis/redis/v8"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/rs/cors"
@@ -24,6 +25,8 @@ import (
 	// for monitoring
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
+
+// Client, Patient, User refer to same thing their names are used interchangebly !!!!
 
 type contextKey string
 
@@ -41,24 +44,29 @@ type Store interface {
 	GetPreferance(string) (*mod.Preferance, error)
 	GetTotalRequestCount(string) (int, error)
 	CreateClient_stats(string) error
-	// counters goes here.....
-	// Recordsviewed_counter(string) error
-	// Recordscreated_counter(string) error
-	// Patientbiodata_created_counter(string) error
-	// Patientbiodata_viewed_counter(string) error
+	GetAppointments_postgres(health_id string, offset, limit int64) ([]*mod.Appointments, error)
+	SetAppointments_postgres(healthcare_id, health_id, status string, id int64) (int64, error)
+	Create_ClientProfile(*mod.PatientDetails) error
+	Get_ClientProfile(string) (*mod.PatientDetails, error)
+	Update_clientProfile(string, map[string]interface{}) (*mod.PatientDetails, error)
+	GetHealthcare_details_postgres(string) (*mod.HIPInfo, error)
 
 	/////////////////////////////////////////////////////////////////////////////
 	/////////////////////////////////////////////////////////////////////////////
 	// MongoDB methods goes here...
-	GetAppointments(string, int) ([]*mod.Appointments, error)
-	SetAppointments(string, string, string, primitive.ObjectID) (*mod.Appointments, error)
-	CreatePatient_bioData(string, *mod.PatientDetails) (*mod.PatientDetails, error)
-	GetPatient_bioData(string) (*mod.PatientDetails, error)
-	CreateHealthcare_details(*mod.HIPInfo) (*mod.HIPInfo, error)
-	GetHealthcare_details(string) (*mod.HIPInfo, error)
+
+	// Some methods that are commented are deprecated and not used and maintained
+	// they've shifted or migrated to other databases for optimizations (like postgres)
+
 	CreatepatientRecords(string, *mod.PatientRecords) (*mod.PatientRecords, error)
 	GetPatientRecords(string, string, int) (*[]mod.PatientRecords, error)
-	UpdatePatientBioData(string, map[string]interface{}) (*mod.PatientDetails, error)
+	// GetAppointments(string, int64) ([]*mod.Appointments, error)
+	// SetAppointments(string, string, string, int64) (*mod.Appointments, error)
+	// CreatePatient_bioData(string, *mod.PatientDetails) (*mod.PatientDetails, error)
+	// GetPatient_bioData(string) (*mod.PatientDetails, error)
+	// CreateHealthcare_details(*mod.HIPInfo) (*mod.HIPInfo, error)
+	// GetHealthcare_details(string) (*mod.HIPInfo, error)
+	// UpdatePatientBioData(string, map[string]interface{}) (*mod.PatientDetails, error)
 
 	/////////////////////////////////////////////////////////////////////////////
 	/////////////////////////////////////////////////////////////////////////////
@@ -103,18 +111,20 @@ func (s *APIServer) Run() {
 
 	// this one will serve from postgres
 	router.HandleFunc("/api/v1/healthcare/preferance/get", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.GetPreferance))))
-	router.HandleFunc("/api/v1/healthcare/preferance/change", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.ChangePreferance))))
+	router.HandleFunc("/api/v1/healthcare/preferance/change", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.Update_Preferance))))
 	router.HandleFunc("/api/v1/healthcare/delete/account", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.DeleteAccount))))
 
 	// this is will server from mongodb
 	router.HandleFunc("/api/v1/healthcare/appointments/get", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.GetAppointments))))
 	router.HandleFunc("/api/v1/healthcare/appointments/set", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.SetAppointments))))
 	router.HandleFunc("/api/v1/healthcare/details", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.GetHealthcare_details))))
-	router.HandleFunc("/api/v1/healthcare/records/create", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.CreatepatientRecords))))
-	router.HandleFunc("/api/v1/healthcare/records/fetch", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.GetPatientRecords))))
-	router.HandleFunc("/api/v1/healthcare/patientbiodata/get", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.GetpatientBioData))))
-	router.HandleFunc("/api/v1/healthcare/patientbiodata/create", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.CreatePatient_bioData))))
-	router.HandleFunc("/api/v1/healthcare/patientbiodata/update", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.UpdatePatientBioData))))
+
+	router.HandleFunc("/api/v1/healthcare/client/records/create", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.CreatepatientRecords))))
+	router.HandleFunc("/api/v1/healthcare/client/records/fetch", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.GetPatientRecords))))
+
+	router.HandleFunc("/api/v1/healthcare/client/profile/create", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.Create_ClientProfile))))
+	router.HandleFunc("/api/v1/healthcare/client/profile/get", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.Get_clientProfile))))
+	router.HandleFunc("/api/v1/healthcare/client/profile/update", withJWTAuth(s.RateLimiter(makeHTTPHandlerFunc(s.UpdateClientProfile))))
 
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"*"},
@@ -165,17 +175,17 @@ func (s *APIServer) SignUp(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// store in mongoDB also !!
-	_, err = s.store.CreateHealthcare_details(user)
-	if err != nil {
-		return writeJSON(w, http.StatusNotAcceptable, map[string]interface{}{
-			"message": "User already exists",
-			"err":     err.Error(),
-		})
-	}
+	// _, err = s.store.CreateHealthcare_details(user)
+	// if err != nil {
+	// 	return writeJSON(w, http.StatusNotAcceptable, map[string]interface{}{
+	// 		"message": "User already exists",
+	// 		"err":     err.Error(),
+	// 	})
+	// }
 
 	// GET IP Addrress of user
-	// for logging and monitering purpose only, this will help you to
-	// moniter your account
+	// for logging and monitering purpose only, this will help to
+	// moniter account
 	ip := r.Header.Get("X-Forwarded-For")
 	// get from header if empty
 	if ip == "" {
@@ -230,7 +240,7 @@ func (s *APIServer) LoginUser(w http.ResponseWriter, r *http.Request) error {
 	// block request if limit exceeded
 	if !ok {
 		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
-			"status": "Your request quota has been exhausted",
+			"status":  "Your request quota has been exhausted",
 			"message": "Mail 21vaibhav11@gmail.com with your Id to increase your quota",
 		})
 	}
@@ -298,30 +308,84 @@ func (s *APIServer) LoginUser(w http.ResponseWriter, r *http.Request) error {
 	})
 }
 
-func (s *APIServer) ChangePreferance(w http.ResponseWriter, r *http.Request) error {
-	if r.Method != "PATCH" {
+func (s *APIServer) Update_Preferance(w http.ResponseWriter, r *http.Request) error {
+	if r.Method != http.MethodPatch {
 		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
 			"error": r.Method + " method not allowed",
 		})
 	}
-	req := make(map[string]interface{})
+
 	healthcareID, ok := r.Context().Value(contextKeyHealthCareID).(string)
 	if !ok {
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
 	}
+
+	// Decode the request body into a map
+	var req map[string]interface{}
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
 			"message": "Error reading request body: " + err.Error(),
 		})
 	}
-	err = s.store.ChangePreferance(healthcareID, req)
-	if err != nil {
-		return writeJSON(w, http.StatusGatewayTimeout, map[string]interface{}{
-			"error": err.Error(),
+
+	// Define valid fields and their types
+	validFields := map[string]func(interface{}) error{
+		"email": func(value interface{}) error {
+			str, ok := value.(string)
+			if !ok || !isValidEmail(str) {
+				return fmt.Errorf("invalid email format")
+			}
+			return nil
+		},
+		"isAvailable": func(value interface{}) error {
+			_, ok := value.(bool)
+			if !ok {
+				return fmt.Errorf("isAvailable must be a boolean")
+			}
+			return nil
+		},
+		"scheduled_deletion": func(value interface{}) error {
+			_, ok := value.(bool)
+			if !ok {
+				return fmt.Errorf("scheduled_deletion must be a boolean")
+			}
+			return nil
+		},
+	}
+
+	// Validate and filter the request fields
+	updates := make(map[string]interface{})
+	for field, validator := range validFields {
+		if value, exists := req[field]; exists {
+			if err := validator(value); err != nil {
+				return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+					"message": fmt.Sprintf("Validation error on field '%s': %s", field, err.Error()),
+				})
+			}
+			updates[field] = value
+		}
+	}
+
+	// No fields has been provided
+	if len(updates) == 0 {
+		return writeJSON(w, http.StatusBadRequest, map[string]string{
+			"message": "No valid fields to update",
 		})
 	}
-	return writeJSON(w, http.StatusOK, req)
+
+	// Perform the update in the postgresDB
+	err = s.store.ChangePreferance(healthcareID, updates)
+	if err != nil {
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"error": "Failed to update preferences: " + err.Error(),
+		})
+	}
+
+	return writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status":      "Preferences updated successfully",
+		"preferances": updates,
+	})
 }
 
 func (s *APIServer) GetPreferance(w http.ResponseWriter, r *http.Request) error {
@@ -373,8 +437,8 @@ func (s *APIServer) GetPreferance(w http.ResponseWriter, r *http.Request) error 
 				}
 
 				return writeJSON(w, http.StatusOK, map[string]interface{}{
-					"preferance": jsonBody,
-					"refreshIn(seconds)":  fetchedData.TTL.Seconds(),
+					"preferance":         jsonBody,
+					"refreshIn(seconds)": fetchedData.TTL.Seconds(),
 				})
 			}
 		}
@@ -456,7 +520,7 @@ func (s *APIServer) GetAppointments(w http.ResponseWriter, r *http.Request) erro
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
 	}
 	query := r.URL.Query()
-	listStr := query.Get("list")
+	listStr := query.Get("limit")
 	list := 5
 	if listStr != "" {
 		var err error
@@ -467,12 +531,14 @@ func (s *APIServer) GetAppointments(w http.ResponseWriter, r *http.Request) erro
 			})
 		}
 	}
-	appointments, err := s.store.GetAppointments(healthcareID, list)
+	appointments, err := s.store.GetAppointments_postgres(healthcareID, 0, int64(list))
 	if err != nil {
-		return writeJSON(w, http.StatusNotAcceptable, map[string]interface{}{
-			"error": "error: " + err.Error(),
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"status": "Something went wrong from our side",
+			"error":  "error: " + err.Error(),
 		})
 	}
+
 	// print [] array always if appointis empty
 	if appointments == nil {
 		appointments = []*mod.Appointments{}
@@ -492,10 +558,14 @@ func (s *APIServer) SetAppointments(w http.ResponseWriter, r *http.Request) erro
 	if !ok {
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
 	}
+
+	// append healthcare ID
 	update := &mod.UpdateAppointment{}
+	update.HealthcareID = healthcareID
 	err := json.NewDecoder(r.Body).Decode(&update)
 	if err != nil {
 		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"err":     err.Error(),
 			"message": "Internal Server Error: could not process data",
 		})
 	}
@@ -506,26 +576,66 @@ func (s *APIServer) SetAppointments(w http.ResponseWriter, r *http.Request) erro
 		})
 	}
 
-	appointments, err := s.store.SetAppointments(healthcareID, update.HealthID, update.Status, (primitive.ObjectID)(update.ID))
+	// Validate the struct fields
+	validate := validator.New()
+	err = validate.Struct(update)
 	if err != nil {
-		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
-			"error": err.Error(),
+		return writeJSON(w, http.StatusNotAcceptable, map[string]interface{}{
+			"status":  "Constraints Violeted",
+			"message": "Invalid data provided, please check your payload",
 		})
 	}
 
+	// Check if struct fields are populated (non-zero values)
+	val := reflect.ValueOf(update).Elem()
+	for i := 0; i < val.NumField(); i++ {
+		field := val.Type().Field(i)
+		value := val.Field(i)
+		if value.IsZero() {
+			return writeJSON(w, http.StatusNotAcceptable, map[string]interface{}{
+				"message": fmt.Errorf("field %s is required but not provided", field.Name),
+			})
+		}
+	}
+
+	// list := 5
+	// if update.ID != "" {
+	// 	var err error
+	// 	list, err = strconv.Atoi(update.ID)
+	// 	if err != nil {
+	// 		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+	// 			"message": "Server error: " + err.Error(),
+	// 		})
+	// 	}
+	// }
+
+	// Set Appointment directly into posgres database, but it is time consuming...
+	// appointments, err := s.store.SetAppointments_postgres(healthcareID, update.HealthID, update.Status, int64(list))
+	// if err != nil {
+	// 	return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+	// 		"error": err.Error(),
+	// 	})
+	// }
+
 	//push into queue for processing
 	notify_appointment := map[string]interface{}{
-		"appointments": appointments,
+		"update": update,
 	}
-	s.store.Push_update_appointment(notify_appointment)
+	err = s.store.Push_update_appointment(notify_appointment)
+	if err != nil {
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"message": "Server error: " + err.Error(),
+		})
+	}
 
 	return writeJSON(w, http.StatusOK, map[string]interface{}{
-		"status":       "Updated",
-		"appointments": appointments,
+		"status":       "Updation Queued",
+		"message":      "appointment will be updated shortly",
+		"appointments": update,
 	})
 }
 
-func (s *APIServer) CreatePatient_bioData(w http.ResponseWriter, r *http.Request) error {
+func (s *APIServer) Create_ClientProfile(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "POST" {
 		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
 			"error": r.Method + " method not allowed",
@@ -540,26 +650,30 @@ func (s *APIServer) CreatePatient_bioData(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
 	}
+
+	// healthcare Name for logs
 	healthcare_name, ok := r.Context().Value(contextKeyHealthCareName).(string)
 	if !ok {
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "HealthID not found in token"})
 	}
 
-	patientDetails, err := mod.CreatePatient_bioData(healthcareID, patient)
+	// create client_profile using function
+	client_profile, err := mod.Create_clientProfile(healthcareID, patient)
 	if err != nil {
 		return err
 	}
 
-	// store into mongoDB directly
-	patientDetails, err = s.store.CreatePatient_bioData(healthcareID, patientDetails)
+	// store into posgres directly
+	err = s.store.Create_ClientProfile(client_profile)
 	if err != nil {
 		return writeJSON(w, http.StatusNotAcceptable, map[string]interface{}{
+			"err":     err.Error(),
 			"message": "User Already exists",
 		})
 	}
 
 	// create stats for this patient also
-	err = s.store.CreateClient_stats(patientDetails.HealthID)
+	err = s.store.CreateClient_stats(client_profile.HealthID)
 	if err != nil {
 		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
 			"message": "Something Went Wrong from our side :(",
@@ -567,49 +681,24 @@ func (s *APIServer) CreatePatient_bioData(w http.ResponseWriter, r *http.Request
 		})
 	}
 
-	// Push this into rabbitmq instead of directly into database (mongodDB)
-	// Push into rabbitmq
-	// body := map[string]interface{}{
-	// 	"biodata": patientDetails,
-	// }
-	// err = s.store.Push_patientbiodata(body)
-	// if err != nil {
-	// 	return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
-	// 		"message": "Something Mishappened (Please Mail 21vaibhav11@gmail.com for this issue)",
-	// 		"status":  "Server Could not Process your Request",
-	// 		"err":     err.Error(),
-	// 	})
-	// }
-	// Notify user via email
-
-	err = s.store.Push_logs("profile_updated", patientDetails.FirstName, patientDetails.Email, patientDetails.HealthID, healthcare_name, healthcareID)
+	err = s.store.Push_logs("profile_updated", client_profile.FirstName, client_profile.Email, client_profile.HealthID, healthcare_name, healthcareID)
 	if err != nil {
 		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
 			"message": "Something Went Wrong from our side :(",
 			"err":     err.Error(),
 		})
 	}
-
-	// counters
-	// err = s.store.Push_counters("hip:patientbiodata_created_counter", patientDetails.HealthcareID)
-	// if err != nil {
-	// 	return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
-	// 		"message": "Something Mishappened (Please Mail 21vaibhav11@gmail.com for this issue)",
-	// 		"status":  "Server Could not Process your Request",
-	// 		"err":     err.Error(),
-	// 	})
-	// }
 
 	return writeJSON(w, http.StatusCreated, map[string]interface{}{
-		"message":          "data has been successfully created!",
-		"status":           "created",
-		"email":            patientDetails.Email,
-		"patient_healthID": patientDetails.HealthID,
-		"Full name":        patientDetails.FirstName + " " + patientDetails.MiddleName + " " + patientDetails.LastName,
+		"message":   "data has been successfully created!",
+		"status":    "created",
+		"email":     client_profile.Email,
+		"health_id": client_profile.HealthID,
+		"fullname":  client_profile.FirstName + " " + client_profile.LastName,
 	})
 }
 
-func (s *APIServer) GetpatientBioData(w http.ResponseWriter, r *http.Request) error {
+func (s *APIServer) Get_clientProfile(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "GET" {
 		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
 			"error": r.Method + " method not allowed",
@@ -632,10 +721,10 @@ func (s *APIServer) GetpatientBioData(w http.ResponseWriter, r *http.Request) er
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "healthcare_name not found in token"})
 	}
 
-	patientDetails, err := s.store.GetPatient_bioData(healthID)
+	patientDetails, err := s.store.Get_ClientProfile(healthID)
 	if err != nil {
 		return writeJSON(w, http.StatusNotFound, map[string]interface{}{
-			"message": "patient not found :(",
+			"message": "No Patient Found :(",
 		})
 	}
 
@@ -647,17 +736,8 @@ func (s *APIServer) GetpatientBioData(w http.ResponseWriter, r *http.Request) er
 			"message": "something went wrong from our side :(",
 		})
 	}
-	// counters
-	// err = s.store.Push_counters("hip:patientbiodata_viewed_counter", patientDetails.HealthcareID)
-	// if err != nil {
-	// 	return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
-	// 		"message": "Something Mishappened (Please Mail 21vaibhav11@gmail.com for this issue)",
-	// 		"status":  "Server Could not Process your Request",
-	// 		"err":     err.Error(),
-	// 	})
-	// }
 
-	return writeJSON(w, http.StatusOK, patientDetails)
+	return writeJSON(w, http.StatusOK, map[string]interface{}{"client_profile": patientDetails})
 }
 
 func (s *APIServer) GetHealthcare_details(w http.ResponseWriter, r *http.Request) error {
@@ -712,11 +792,10 @@ func (s *APIServer) GetHealthcare_details(w http.ResponseWriter, r *http.Request
 	}
 
 	// fetch from database now!!
-	hipdetails, err := s.store.GetHealthcare_details(healthcareID)
+	hipdetails, err := s.store.GetHealthcare_details_postgres(healthcareID)
 	if err != nil {
 		return writeJSON(w, http.StatusNotFound, map[string]interface{}{
-			"message":    "Not Found!",
-			"healthcare": hipdetails,
+			"message": "Healthcare Not Found!",
 		})
 	}
 
@@ -758,6 +837,7 @@ func (s *APIServer) CreatepatientRecords(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"message": "StatusUnauthorized"})
 	}
+
 	healthcare_name, ok := r.Context().Value(contextKeyHealthCareName).(string)
 	if !ok {
 		return writeJSON(w, http.StatusUnauthorized, map[string]string{"HealthID": "healthcare_name not found in token"})
@@ -775,6 +855,14 @@ func (s *APIServer) CreatepatientRecords(w http.ResponseWriter, r *http.Request)
 	// 		"message": err,
 	// 	})
 	// }
+
+	patientrecords, err = mod.CreatePatientRecords(healthcareId, patientrecords)
+	if err != nil {
+		return writeJSON(w, http.StatusNotAcceptable, map[string]interface{}{
+			"err":     err.Error(),
+			"message": "Wrong Payload provided by User!",
+		})
+	}
 
 	// Convert into body format
 	body := map[string]interface{}{
@@ -887,7 +975,7 @@ func (s *APIServer) GetPatientRecords(w http.ResponseWriter, r *http.Request) er
 	})
 }
 
-func (s *APIServer) UpdatePatientBioData(w http.ResponseWriter, r *http.Request) error {
+func (s *APIServer) UpdateClientProfile(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "PATCH" {
 		return writeJSON(w, http.StatusBadRequest, map[string]interface{}{
 			"error": r.Method + " method not allowed",
@@ -918,15 +1006,22 @@ func (s *APIServer) UpdatePatientBioData(w http.ResponseWriter, r *http.Request)
 		})
 	}
 
-	updatedPatient, err := s.store.UpdatePatientBioData(healthID, updates)
+	// Update client directly in postgres database
+	updatedPatient, err := s.store.Update_clientProfile(healthID, updates)
 	if err != nil {
-		return writeJSON(w, http.StatusConflict, map[string]interface{}{
-			"message": "No Chage Detected or No Patient Found",
+		return writeJSON(w, http.StatusNotAcceptable, map[string]interface{}{
+			"err":     err.Error(),
+			"message": "Wrong Payload Provided by User",
 		})
 	}
-	// Get HealthCareId and update the patient
+
 	// push the logs into queue
-	s.store.Push_logs("profile_updated", updatedPatient.FirstName, updatedPatient.Email, updatedPatient.HealthID, healthcare_name, healthcareId)
+	err = s.store.Push_logs("profile_updated", updatedPatient.FirstName, updatedPatient.Email, updatedPatient.HealthID, healthcare_name, healthcareId)
+	if err != nil {
+		return writeJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"message": "Internal Server Error: could not process data",
+		})
+	}
 
 	return writeJSON(w, http.StatusAccepted, map[string]interface{}{
 		"updated_details": updatedPatient,
@@ -1079,4 +1174,11 @@ func makeHTTPHandlerFunc(f apiFunc) http.HandlerFunc {
 			writeJSON(w, http.StatusBadRequest, apiError{Error: err.Error()})
 		}
 	}
+}
+
+// isvalid email
+// isValidEmail validates the email format
+func isValidEmail(email string) bool {
+	re := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+	return re.MatchString(email)
 }

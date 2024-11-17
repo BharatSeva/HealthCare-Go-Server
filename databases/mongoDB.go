@@ -70,7 +70,7 @@ func (m *MongoStore) Init() error {
 }
 
 // fetch appointments
-func (m *MongoStore) GetAppointments(healthcareID string, list int) ([]*Appointments, error) {
+func (m *MongoStore) GetAppointments(healthcareID string, list int64) ([]*Appointments, error) {
 	coll := m.db.Database(m.database).Collection("appointments")
 	filter := bson.D{{Key: "healthcare_id", Value: healthcareID}}
 	findOptions := options.Find().SetLimit(int64(list))
@@ -88,49 +88,49 @@ func (m *MongoStore) GetAppointments(healthcareID string, list int) ([]*Appointm
 }
 
 // fetch appointments
-func (m *MongoStore) SetAppointments(healthcareID, healthId, status string, id primitive.ObjectID) (*Appointments, error) {
-	coll := m.db.Database(m.database).Collection("appointments")
-	filter := bson.D{
-		{Key: "healthcare_id", Value: healthcareID},
-		{Key: "health_id", Value: healthId},
-		{Key: "_id", Value: id},
-	}
-	update := bson.D{
-		{Key: "$set", Value: bson.D{
-			{Key: "status", Value: status},
-		}},
-		{Key: "$currentDate", Value: bson.D{
-			{Key: "updated_at", Value: true},
-		}},
-	}
-	result, err := coll.UpdateOne(context.Background(), filter, update)
-	if err != nil {
-		return nil, fmt.Errorf("error updating appointment: %w", err)
-	}
-	if result.MatchedCount == 0 {
-		return nil, fmt.Errorf("no appointment found with healthcareID %s, healthId %s, and id %s", healthcareID, healthId, id.Hex())
-	}
-	if result.ModifiedCount == 0 {
-		return nil, fmt.Errorf("no fields were updated for appointment with id %s", id.Hex())
-	}
+func (m *MongoStore) SetAppointments(healthcareID, healthId, status string, id int64) (*Appointments, error) {
+	// coll := m.db.Database(m.database).Collection("appointments")
+	// filter := bson.D{
+	// 	{Key: "healthcare_id", Value: healthcareID},
+	// 	{Key: "health_id", Value: healthId},
+	// 	{Key: "_id", Value: id},
+	// }
+	// update := bson.D{
+	// 	{Key: "$set", Value: bson.D{
+	// 		{Key: "status", Value: status},
+	// 	}},
+	// 	{Key: "$currentDate", Value: bson.D{
+	// 		{Key: "updated_at", Value: true},
+	// 	}},
+	// }
+	// result, err := coll.UpdateOne(context.Background(), filter, update)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("error updating appointment: %w", err)
+	// }
+	// if result.MatchedCount == 0 {
+	// 	return nil, fmt.Errorf("no appointment found with healthcareID %s, healthId %s, and id %s", healthcareID, healthId, id.Hex())
+	// }
+	// if result.ModifiedCount == 0 {
+	// 	return nil, fmt.Errorf("no fields were updated for appointment with id %s", id.Hex())
+	// }
 	var appointments Appointments
-	err = coll.FindOne(context.Background(), filter).Decode(&appointments)
-	if err != nil {
-		return nil, fmt.Errorf("error fetching updated appointment: %w", err)
-	}
+	// err = coll.FindOne(context.Background(), filter).Decode(&appointments)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("error fetching updated appointment: %w", err)
+	// }
 	return &appointments, nil
 }
 
 func (m *MongoStore) CreatePatient_bioData(healthcareID string, patientDetails *PatientDetails) (*PatientDetails, error) {
-	patientDetails.ID = primitive.NewObjectID()
-	coll := m.db.Database(m.database).Collection("patient_details")
-	_, err := coll.InsertOne(context.TODO(), patientDetails)
-	if err != nil {
-		if mongo.IsDuplicateKeyError(err) {
-			return nil, fmt.Errorf("mobilenumber or healthid or email already exists")
-		}
-		return nil, fmt.Errorf("failed to insert patient details: %v", err)
-	}
+	// patientDetails.ID = primitive.NewObjectID()
+	// coll := m.db.Database(m.database).Collection("patient_details")
+	// _, err := coll.InsertOne(context.TODO(), patientDetails)
+	// if err != nil {
+	// 	if mongo.IsDuplicateKeyError(err) {
+	// 		return nil, fmt.Errorf("mobilenumber or healthid or email already exists")
+	// 	}
+	// 	return nil, fmt.Errorf("failed to insert patient details: %v", err)
+	// }
 	return patientDetails, nil
 }
 
@@ -177,11 +177,9 @@ func (m *MongoStore) GetHealthcare_details(healthcareId string) (*HIPInfo, error
 	if err = cursor.All(context.TODO(), &hipdetails); err != nil {
 		return nil, fmt.Errorf("error decoding HIP details: %w", err)
 	}
-
 	if len(hipdetails) == 0 {
 		return nil, fmt.Errorf("no healthcare found with given id: %s", healthcareId)
 	}
-
 	return &hipdetails[0], nil
 }
 

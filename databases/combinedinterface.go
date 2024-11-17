@@ -6,7 +6,7 @@ import (
 	mq "vaibhavyadav-dev/healthcareServer/rabbitmq"
 	rd "vaibhavyadav-dev/healthcareServer/redis"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	// "go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type CombinedStore struct {
@@ -78,16 +78,42 @@ func (s *CombinedStore) GetTotalRequestCount(healthcare_id string) (int, error) 
 	return s.postgres.GetTotalRequestCount(healthcare_id)
 }
 
-func (s *CombinedStore) CreateClient_stats(health_id string)(error){
+func (s *CombinedStore) CreateClient_stats(health_id string) error {
 	return s.postgres.CreateClient_stats(health_id)
 }
+func (s *CombinedStore) GetAppointments_postgres(health_id string, offset, limit int64) ([]*Appointments, error) {
+	return s.postgres.GetAppointments(health_id, offset, limit)
+}
+func (s *CombinedStore) SetAppointments_postgres(healthcare_id, health_id, status string, id int64) (int64, error) {
+	return s.postgres.SetAppointments(healthcare_id, health_id, status, id)
+}
+// Get Healthcare_Profile
+func (s *CombinedStore) GetHealthcare_details_postgres(healthcare_id string) (*HIPInfo, error){
+	return s.postgres.GetHealthcare_details(healthcare_id)
+}
+
+// Create Client_Profile
+func (s *CombinedStore) Create_ClientProfile(client *PatientDetails) error {
+	return s.postgres.Create_ClientProfile(client)
+}
+
+// Get Client_Profile
+func (s *CombinedStore) Get_ClientProfile(health_id string) (*PatientDetails, error) {
+	return s.postgres.Get_ClientProfile(health_id)
+}
+
+// Update Client_Profile
+func (s *CombinedStore) Update_clientProfile(health_id string, update map[string]interface{}) (*PatientDetails, error){
+	return s.postgres.UpdateClientProfile(health_id, update);
+}
+
 
 // mongodb methods goes here.....
-func (s *CombinedStore) GetAppointments(id string, list int) ([]*Appointments, error) {
+func (s *CombinedStore) GetAppointments(id string, list int64) ([]*Appointments, error) {
 	return s.mongodb.GetAppointments(id, list)
 }
 
-func (s *CombinedStore) SetAppointments(healthcare_id, health_id, status string, id primitive.ObjectID) (*Appointments, error) {
+func (s *CombinedStore) SetAppointments(healthcare_id, health_id, status string, id int64) (*Appointments, error) {
 	return s.mongodb.SetAppointments(healthcare_id, health_id, status, id)
 }
 

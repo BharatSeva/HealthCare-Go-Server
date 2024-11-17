@@ -3,6 +3,8 @@ package databases
 import (
 	"database/sql"
 	"fmt"
+	"strings"
+
 	_ "github.com/lib/pq"
 )
 
@@ -65,21 +67,6 @@ func (s *PostgresStore) CreateTable() error {
 			isAvailable VARCHAR(20) NOT NULL,
 			FOREIGN KEY (healthcare_id) REFERENCES HIP_TABLE(healthcare_id) ON DELETE CASCADE
 		);`,
-
-		`CREATE TABLE IF NOT EXISTS Appointments (
-			Id SERIAL PRIMARY KEY,
-			healthcare_id TEXT NOT NULL,
-			appointment_date DATE NOT NULL,
-			appointment_time TIME NOT NULL,
-			health_id VARCHAR(10) NOT NULL,
-			department VARCHAR(50),
-			note VARCHAR(500),
-			fname VARCHAR(50) NOT NULL,
-			middlename VARCHAR(50),
-			lname VARCHAR(50) NOT NULL,
-			name VARCHAR(50) NOT NULL,
-			FOREIGN KEY (healthcare_id) REFERENCES HIP_TABLE(healthcare_id) ON DELETE CASCADE
-		);`,
 		`CREATE TABLE IF NOT EXISTS client_stats (
 			health_id VARCHAR PRIMARY KEY UNIQUE,
 			account_status VARCHAR CHECK (account_status IN ('Trial', 'Testing', 'Beta', 'Premium')) NOT NULL DEFAULT 'Trial',
@@ -87,7 +74,39 @@ func (s *PostgresStore) CreateTable() error {
 			profile_viewed INTEGER NOT NULL DEFAULT 0,
 			profile_updated INTEGER NOT NULL DEFAULT 0,
 			records_viewed INTEGER NOT NULL DEFAULT 0,
-			records_created INTEGER NOT NULL DEFAULT 0
+			records_created INTEGER NOT NULL DEFAULT 0,
+			FOREIGN KEY (health_id) REFERENCES client_profile(health_id) ON DELETE CASCADE
+		);`,
+
+		// create client_profile
+		`CREATE TABLE IF NOT EXISTS client_profile (
+			id SERIAL PRIMARY KEY,
+			health_id VARCHAR(150) NOT NULL,
+			first_name VARCHAR(150) NOT NULL,
+			middle_name VARCHAR(150),
+			last_name VARCHAR(150) NOT NULL, 
+			sex VARCHAR(150) NOT NULL,
+			healthcare_id VARCHAR NOT NULL,
+			dob VARCHAR(150) NOT NULL, -- Increased length here
+			blood_group VARCHAR(150) NOT NULL,
+			bmi VARCHAR(150) NOT NULL,
+			marriage_status VARCHAR(150) NOT NULL,
+			weight VARCHAR(150) NOT NULL, 
+			email VARCHAR(150) NOT NULL,
+			mobile_number VARCHAR(150) NOT NULL,
+			aadhaar_number VARCHAR(150) NOT NULL,
+			primary_location VARCHAR(150) NOT NULL,
+			sibling VARCHAR(150) NOT NULL,
+			twin VARCHAR(150) NOT NULL,
+			father_name VARCHAR(150) NOT NULL,
+			mother_name VARCHAR(150) NOT NULL,
+			emergency_number VARCHAR(150) NOT NULL,
+			created_at TIMESTAMP NOT NULL,
+			updated_at TIMESTAMP NOT NULL,
+			country VARCHAR(150) NOT NULL,
+			city VARCHAR(150) NOT NULL,
+			state VARCHAR(150) NOT NULL, 
+			landmark VARCHAR(150) NOT NULL
 		);`,
 	}
 	for _, query := range queries {
@@ -204,6 +223,141 @@ func (s *PostgresStore) GetPreferance(healthcareId string) (*Preferance, error) 
 	return preferance, nil
 }
 
+func (s *PostgresStore) GetHealthcare_details(healthcare_id string) (*HIPInfo, error) {
+	query := `SELECT 
+		healthcare_id, healthcare_license, healthcare_name, email, availability, 
+		total_facilities, total_mbbs_doc, total_worker, no_of_beds, 
+		date_of_registration, password, about, country, state, city, landmark
+		FROM HIP_TABLE
+		WHERE healthcare_id = $1;`
+
+	row := s.db.QueryRow(query, healthcare_id)
+
+	var hip HIPInfo
+	err := row.Scan(
+		&hip.HealthcareID, &hip.HealthcareLicense, &hip.HealthcareName, &hip.Email, &hip.Availability,
+		&hip.TotalFacilities, &hip.TotalMBBSDoc, &hip.TotalWorker, &hip.NoOfBeds,
+		&hip.DateOfRegistration, &hip.Password, &hip.About, &hip.Address.Country,
+		&hip.Address.State, &hip.Address.City, &hip.Address.Landmark,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("no healthcare provider found with ID: %s", healthcare_id)
+		}
+		return nil, err
+	}
+	return &hip, nil
+}
+
+// create client_profile
+func (s *PostgresStore) Create_ClientProfile(client *PatientDetails) error {
+	query := `INSERT INTO client_profile (
+		health_id, first_name, middle_name, last_name, sex, healthcare_id, 
+		dob, blood_group, bmi, marriage_status, weight, email, 
+		mobile_number, aadhaar_number, primary_location, sibling, twin, 
+		father_name, mother_name, emergency_number, created_at, updated_at, country, city, state, landmark
+	) VALUES (
+		$1, $2, $3, $4, $5, $6, 
+		$7, $8, $9, $10, $11, $12, 
+		$13, $14, $15, $16, $17, 
+		$18, $19, $20, $21, $22, $23, $24, $25, $26
+	);`
+
+	_, err := s.db.Exec(query, client.HealthID, client.FirstName, client.MiddleName, client.LastName, client.Sex,
+		client.HealthcareID, client.DOB, client.BloodGroup, client.BMI,
+		client.MarriageStatus, client.Weight, client.Email, client.MobileNumber,
+		client.AadhaarNumber, client.PrimaryLocation, client.Sibling, client.Twin,
+		client.FatherName, client.MotherName, client.EmergencyNumber, client.CreatedAt, client.UpdatedAt,
+		client.Address.Country, client.Address.City, client.Address.State, client.Address.Landmark)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *PostgresStore) Get_ClientProfile(health_id string) (*PatientDetails, error) {
+	query := `SELECT health_id, first_name, middle_name, last_name, sex, healthcare_id, 
+	dob, blood_group, bmi, marriage_status, weight, email, 
+	mobile_number, aadhaar_number, primary_location, sibling, twin, 
+	father_name, mother_name, emergency_number, created_at, updated_at, country, city, state, landmark
+	FROM client_profile
+	WHERE health_id = $1;`
+
+	row := s.db.QueryRow(query, health_id)
+
+	var client PatientDetails
+	err := row.Scan(
+		&client.HealthID, &client.FirstName, &client.MiddleName, &client.LastName, &client.Sex, &client.HealthcareID,
+		&client.DOB, &client.BloodGroup, &client.BMI, &client.MarriageStatus, &client.Weight, &client.Email,
+		&client.MobileNumber, &client.AadhaarNumber, &client.PrimaryLocation, &client.Sibling, &client.Twin,
+		&client.FatherName, &client.MotherName, &client.EmergencyNumber, &client.CreatedAt, &client.UpdatedAt,
+		&client.Address.Country, &client.Address.City, &client.Address.State, &client.Address.Landmark,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("no client found with health ID: %s", health_id)
+		}
+		return nil, err
+	}
+	return &client, nil
+}
+
+func (s *PostgresStore) UpdateClientProfile(healthID string, updates map[string]interface{}) (*PatientDetails, error) {
+	setClause := []string{}
+	values := []interface{}{}
+	counter := 1
+
+	// Iterate over the updates map to prepare the SET clause
+	for key, value := range updates {
+		if value != "" && value != "N/A" && key != "healthcare_id" && key != "health_id" {
+			setClause = append(setClause, fmt.Sprintf("%s = $%d", key, counter))
+			values = append(values, value)
+			counter++
+		}
+	}
+
+	// If no valid fields to update, return an error
+	if len(setClause) == 0 {
+		return nil, fmt.Errorf("no valid fields to update")
+	}
+
+	// Append the updated_at field to always update the timestamp
+	setClause = append(setClause, fmt.Sprintf("updated_at = NOW()"))
+
+	// Add the health_id as the last parameter for the WHERE clause
+	values = append(values, healthID)
+
+	// Construct the final SQL query
+	query := fmt.Sprintf(`
+		UPDATE client_profile
+		SET %s
+		WHERE health_id = $%d
+		RETURNING *;
+	`, strings.Join(setClause, ", "), counter)
+
+	// Execute the update query
+	row := s.db.QueryRow(query, values...)
+	var updatedClient PatientDetails
+	err := row.Scan(
+		&updatedClient.ID, &updatedClient.HealthID, &updatedClient.FirstName, &updatedClient.MiddleName,
+		&updatedClient.LastName, &updatedClient.Sex, &updatedClient.HealthcareID, &updatedClient.DOB,
+		&updatedClient.BloodGroup, &updatedClient.BMI, &updatedClient.MarriageStatus, &updatedClient.Weight,
+		&updatedClient.Email, &updatedClient.MobileNumber, &updatedClient.AadhaarNumber, &updatedClient.PrimaryLocation,
+		&updatedClient.Sibling, &updatedClient.Twin, &updatedClient.FatherName, &updatedClient.MotherName,
+		&updatedClient.EmergencyNumber, &updatedClient.CreatedAt, &updatedClient.UpdatedAt, &updatedClient.Address.Country,
+		&updatedClient.Address.City, &updatedClient.Address.State, &updatedClient.Address.Landmark)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("no client profile found with health_id %s", healthID)
+		}
+		return nil, err
+	}
+	return &updatedClient, nil
+}
+
 // Get totalRequest from database
 func (s *PostgresStore) GetTotalRequestCount(healthcare_id string) (int, error) {
 	var count int
@@ -217,7 +371,6 @@ func (s *PostgresStore) GetTotalRequestCount(healthcare_id string) (int, error) 
 	if err != nil {
 		return 0, fmt.Errorf("failed to retrieve totalrequest_count: %w", err)
 	}
-
 	return count, nil
 }
 
@@ -230,6 +383,58 @@ func (s *PostgresStore) CreateClient_stats(health_id string) error {
 		return err
 	}
 	return nil
+}
+
+// get and set appointments for user
+func (s *PostgresStore) GetAppointments(healthcare_id string, offset, limit int64) ([]*Appointments, error) {
+	query := `SELECT id, health_id, status, appointment_date, appointment_time, healthcare_id, department, note, fullname, healthcare_name 
+              FROM appointments WHERE healthcare_id = $1 `
+	rows, err := s.db.Query(query, healthcare_id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute query: %w", err)
+	}
+	defer rows.Close()
+
+	var appointments []*Appointments
+	for rows.Next() {
+		var appointment Appointments
+		err := rows.Scan(
+			&appointment.ID,
+			&appointment.HealthID,
+			&appointment.Status,
+			&appointment.AppointmentDate,
+			&appointment.AppointmentTime,
+			&appointment.HealthcareID,
+			&appointment.Department,
+			&appointment.Note,
+			&appointment.FullName,
+			&appointment.HealthcareName,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+		appointments = append(appointments, &appointment)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating rows: %w", err)
+	}
+
+	return appointments, nil
+}
+
+// Update appointment Status
+func (s *PostgresStore) SetAppointments(healthcare_id, healthID, status string, id int64) (int64, error) {
+	query := `UPDATE appointments SET status = $1 WHERE health_id = $2 AND healthcare_id = $3`
+	result, err := s.db.Exec(query, status, healthcare_id, healthID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to update appointments: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("failed to fetch rows affected: %w", err)
+	}
+	return rowsAffected, nil
 }
 
 // Utility Functions

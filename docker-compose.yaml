@@ -1,7 +1,7 @@
 version: '3.8'
 services:
   client_server:
-    build: ./User-Server/
+    build: ./patient_server/
     ports:
       - "3001"
     restart: always
@@ -10,14 +10,14 @@ services:
       - PORT=3001
       - MONGOURL_USER=mongodb://rootuser:rootuser@mongodb:27017/db?authSource=admin
       - Patient_JWT_LIFETIME=30d
-      - Patient_JWT_SECRET_KEY=VaibhavYadav
+      - Patient_JWT_SECRET_KEY=VaibhavYadav_KEY_VALUE
       - POSTGRES_HOST=postgres
       - POSTGRES_USER=rootuser
       - POSTGRES_PASS=rootuser
       - POSTGRES_PORT=5432
       - POSTGRES_DIALECT=postgres
-      - MAX_REQUESTS=10
-      - WINDOW_SIZE_IN_SECONDS=10
+      - MAX_REQUESTS=25
+      - WINDOW_SIZE_IN_SECONDS=15
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - RABBITMQ_URL=amqp://rootuser:rootuser@rabbitmq:5672/
@@ -36,7 +36,7 @@ services:
         condition: service_healthy
 
   healthcare_server:
-    build: ./Healthcare-Server/
+    build: ./healthcare_server/
     container_name: healthcare_server
     ports:
       - "3002"
@@ -56,9 +56,30 @@ services:
         condition: service_healthy
   
   worker:
-    build: ./Worker/
+    build: ./worker/
     restart: always
     container_name: worker_service
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=rootuser
+      - RABBITMQ_PASSWORD=rootuser
+
+      - MONGODB_URL=mongodb://rootuser:rootuser@mongodb:27017?authSource=admin
+      - MONGODB_USER=rootuser
+      - MONGODB_PASSWORD=rootuser
+
+      - POSTGRESQL_HOST=postgres
+      - POSTGRESQL_USER=rootuser
+      - POSTGRESQL_PASSWORD=rootuser
+      - POSTGRESQL_PORT=5432
+      - POSTGRESQL_DB=postgres
+      - POSTGRESQL_URL=postgres://rootuser:rootuser@postgres:5432/postgres?sslmode=disable
+
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=465
+      - SMTP_EMAIL=<your-email>
+      - SMTP_PASSWORD=<your-one-time-password>
     networks:
       - app_network
     deploy:
@@ -144,6 +165,66 @@ services:
       timeout: 10s
       retries: 5
 
+  prometheus:
+    image: prom/prometheus:v2.30.3
+    ports: 
+      - "9090:9090"
+    volumes:
+      - ./Worker/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - app_network
+      
+  grafana:
+    image: grafana/grafana:8.2.2
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./worker/monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./worker/monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+      - ./worker/monitoring/grafana/data:/var/lib/grafana
+      - ./worker/monitoring/grafana/logs:/var/log/grafana
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin  
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+    networks:
+      - app_network
+    depends_on: 
+      - prometheus
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    ports:
+      - "8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - app_network
+  
+  node_exporter:
+    image: prom/node-exporter:latest
+    ports:
+      - "9100"
+    networks:
+      - app_network
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro       
+      - /:/rootfs:ro   
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.ignored-mount-points="^/(sys|proc|dev|host|etc)($$|/)"'
+
   nginx:
     image: nginx
     restart: always
@@ -170,9 +251,6 @@ volumes:
 networks:
   app_network:
     driver: bridge
-
-
-
 
 
 

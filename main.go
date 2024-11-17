@@ -25,7 +25,7 @@ func main() {
 	redisURL := os.Getenv("REDIS")
 	rabbitMqURL := os.Getenv("RABBITMQ")
 	psqlInfo := os.Getenv("POSTGRES")
-	mongoURI := os.Getenv("MONGOURL")
+	mongoURI := os.Getenv("MONGOURL") 
 
 	// first one is redis url, second one is limit, and third one is time.Second
 	// limit -> 10

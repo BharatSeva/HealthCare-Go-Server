@@ -17,9 +17,7 @@ This **Healthcare Service API**, crafted in **Golang**, powers high-concurrency 
 
 ## Key Features
 - **Patient Record Management:** Full CRUD operations for handling patient data with robust error handling and optimized retrieval.
-- **Appointments System:** End-to-end support for appointment creation, scheduling, rescheduling, and cancellations.
 - **Medical History Access:** A secure repository for patients' healthcare history, accessible through structured queries.
-- **Notification Services:** Automated email/SMS reminders for appointments and other key updates.
 - **JWT-Based Security:** JSON Web Tokens (JWT) for secure access to API endpoints.
 - **Multi-Database Integration:** Optimized data flow across **PostgreSQL**  and **MongoDB**.
 - **Redis Caching** : Real-time caching and rate-limiting for optimal response times and resource efficiency.
@@ -49,8 +47,8 @@ KEY=VAIBHAVYADAV
 1. Clone the Repository:
 
 ```bash
-git clone https://github.com/BharatSeva/HealthCare-Go-Server.git
-cd HealthCare-Go-Server
+git clone https://github.com/BharatSeva/Healthcare-Server.git
+cd Healthcare-Server
 ```
 
 2. Install Dependencies:
