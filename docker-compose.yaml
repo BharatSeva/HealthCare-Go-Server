@@ -1,7 +1,7 @@
 version: '3.8'
 services:
   client_server:
-    build: ./patient_server/
+    build: ./Client-Server/
     ports:
       - "3001"
     restart: always
@@ -10,14 +10,14 @@ services:
       - PORT=3001
       - MONGOURL_USER=mongodb://rootuser:rootuser@mongodb:27017/db?authSource=admin
       - Patient_JWT_LIFETIME=30d
-      - Patient_JWT_SECRET_KEY=VaibhavYadav_KEY_VALUE
+      - Patient_JWT_SECRET_KEY=VaibhavYadav
       - POSTGRES_HOST=postgres
       - POSTGRES_USER=rootuser
       - POSTGRES_PASS=rootuser
       - POSTGRES_PORT=5432
       - POSTGRES_DIALECT=postgres
-      - MAX_REQUESTS=25
-      - WINDOW_SIZE_IN_SECONDS=15
+      - MAX_REQUESTS=10
+      - WINDOW_SIZE_IN_SECONDS=10
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - RABBITMQ_URL=amqp://rootuser:rootuser@rabbitmq:5672/
@@ -36,7 +36,7 @@ services:
         condition: service_healthy
 
   healthcare_server:
-    build: ./healthcare_server/
+    build: ./Healthcare-Server/
     container_name: healthcare_server
     ports:
       - "3002"
@@ -54,11 +54,13 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
-  
+
   worker:
-    build: ./worker/
+    build: ./Worker/
     restart: always
     container_name: worker_service
+    networks:
+      - app_network
     environment:
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_PORT=5672
@@ -80,8 +82,6 @@ services:
       - SMTP_PORT=465
       - SMTP_EMAIL=<your-email>
       - SMTP_PASSWORD=<your-one-time-password>
-    networks:
-      - app_network
     deploy:
       replicas: 1
     depends_on:
@@ -167,7 +167,7 @@ services:
 
   prometheus:
     image: prom/prometheus:v2.30.3
-    ports: 
+    ports:
       - "9090:9090"
     volumes:
       - ./Worker/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
@@ -178,23 +178,24 @@ services:
       - '--web.console.templates=/usr/share/prometheus/consoles'
     networks:
       - app_network
-      
+
   grafana:
     image: grafana/grafana:8.2.2
     ports:
       - "3000:3000"
     volumes:
-      - ./worker/monitoring/grafana/provisioning:/etc/grafana/provisioning
-      - ./worker/monitoring/grafana/dashboards:/var/lib/grafana/dashboards
-      - ./worker/monitoring/grafana/data:/var/lib/grafana
-      - ./worker/monitoring/grafana/logs:/var/log/grafana
+    # make sure that not singular(dashboard aka without (s)) name is present
+      - ./Worker/monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+      - ./Worker/monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./Worker/monitoring/grafana/data:/var/lib/grafana
+      - ./Worker/monitoring/grafana/logs:/var/log/grafana
     environment:
       - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin  
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
       - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
     networks:
       - app_network
-    depends_on: 
+    depends_on:
       - prometheus
 
   cadvisor:
@@ -209,7 +210,7 @@ services:
       - /dev/disk/:/dev/disk:ro
     networks:
       - app_network
-  
+
   node_exporter:
     image: prom/node-exporter:latest
     ports:
@@ -218,8 +219,8 @@ services:
       - app_network
     volumes:
       - /proc:/host/proc:ro
-      - /sys:/host/sys:ro       
-      - /:/rootfs:ro   
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
     command:
       - '--path.procfs=/host/proc'
       - '--path.sysfs=/host/sys'
@@ -251,6 +252,3 @@ volumes:
 networks:
   app_network:
     driver: bridge
-
-
-
